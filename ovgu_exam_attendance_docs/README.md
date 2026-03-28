@@ -15,6 +15,7 @@ This folder contains a complete documentation package for the proposed mobile at
 9. [09_deployment_and_distribution_plan.md](/Users/sakshamgupta/Desktop/deepseek/codexapp/ovgu_exam_attendance_docs/09_deployment_and_distribution_plan.md)
 10. [10_risks_and_mitigations.md](/Users/sakshamgupta/Desktop/deepseek/codexapp/ovgu_exam_attendance_docs/10_risks_and_mitigations.md)
 11. [11_future_improvements.md](/Users/sakshamgupta/Desktop/deepseek/codexapp/ovgu_exam_attendance_docs/11_future_improvements.md)
+12. [12_phased_development_roadmap.md](/Users/sakshamgupta/Desktop/deepseek/codexapp/ovgu_exam_attendance_docs/12_phased_development_roadmap.md)
 
 ## Scope
 
