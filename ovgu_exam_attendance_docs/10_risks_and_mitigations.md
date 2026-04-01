@@ -42,7 +42,7 @@ Mitigations:
 
 Description:
 
-Invigilators may confirm the wrong student, miss a duplicate warning, or use the wrong exam session.
+Invigilators may confirm the wrong student, miss a duplicate warning, or **import the wrong CSV** (MVP: no named session guardrail).
 
 Impact:
 
@@ -51,10 +51,10 @@ Impact:
 
 Mitigations:
 
-- show clear confirmation screen
+- show clear confirmation screen (name + matriculation)
 - make duplicate warnings prominent
-- provide active exam context on every operational screen
-- support correction with audit trail
+- after import, verbal cross-check that the **expected exam** matches the CSV (MVP keeps UI minimal)
+- **Post-MVP:** named sessions, checksum hints, correction with audit trail
 
 ## Risk 4: Device Performance Limitations
 
@@ -78,7 +78,7 @@ Mitigations:
 
 Description:
 
-Malformed or inconsistent roster files may break lookup reliability before the exam even begins.
+Malformed or inconsistent CSV **participant lists** may break lookup reliability before the exam even begins.
 
 Impact:
 
@@ -88,9 +88,9 @@ Impact:
 Mitigations:
 
 - strict CSV validation
-- import error summary
-- pre-exam readiness check
-- optional roster checksum or version display
+- clear error when import fails
+- pre-exam readiness check (organizer verifies correct file)
+- **Post-MVP:** optional import checksum or version display
 
 ## Risk 6: Privacy Incident Through Device Loss or Export Misuse
 

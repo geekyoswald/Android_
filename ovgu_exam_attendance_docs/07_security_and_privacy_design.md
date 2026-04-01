@@ -1,5 +1,9 @@
 # 7. Security & Privacy Design
 
+## MVP vs post-MVP
+
+**MVP** must: keep data **local**, use **no cloud** APIs or OCR, avoid storing card images by default, and request **minimal permissions**. **Encryption at rest**, extended audit trails, and formal retention workflows are **post-MVP** targets unless OVGU governance mandates them before pilot. This document describes the full target posture; MVP implements the subset noted below.
+
 ## Security and Privacy Objectives
 
 - Keep all personal data local to the device.
@@ -10,8 +14,9 @@
 
 ## Data Storage Approach
 
-- Store roster, attendance, and audit data in app-private local storage only.
-- Encrypt the local database at rest.
+- Store the **participant list** and attendance in app-private local storage only.
+- **Post-MVP / recommended for production:** encrypt the local database at rest.
+- **MVP:** document plain SQLite if encryption blocks delivery; migrate before wide deployment.
 - Store encryption material in the platform keystore or keychain where feasible.
 - Do not store raw card images by default.
 - Avoid retaining full OCR text unless there is a clear operational need and approved retention policy.
@@ -42,7 +47,8 @@ Relevant personal data includes:
 - student full name
 - matriculation number
 - attendance status
-- timestamp of attendance marking
+
+**Post-MVP / optional:** time of marking or record metadata timestamps if policy or operations require them.
 
 Required privacy positions:
 
@@ -74,7 +80,7 @@ Recommended policy baseline:
 
 Potential impact:
 
-- Unauthorized access to student roster and attendance data.
+- Unauthorized access to the **participant list** and attendance data.
 
 Mitigations:
 

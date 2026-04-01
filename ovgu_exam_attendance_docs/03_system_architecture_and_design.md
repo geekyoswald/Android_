@@ -1,8 +1,20 @@
 # 3. System Architecture & Design
 
+## MVP vs full architecture
+
+**MVP presentation layer** maps to a small number of flows:
+
+- **Import:** pick CSV, minimal validation; **participant list** becomes the active working set (conceptually one implicit “session”). **No** separate import summary screen for MVP.
+- **Main / scan:** camera + OCR pipeline, confirmation, duplicate handling; entry to manual search.
+- **Manual search:** find student, confirm present (shared rules with scan path).
+- **Progress:** present count and not-yet-marked count always derivable from **participant list + present records**.
+- **Export:** compute `present` | `absent` per row at export time; write CSV locally.
+
+Optional components in this document (audit service, exam session controller with full lifecycle, secure key management) apply to **post-MVP** hardening unless explicitly pulled into MVP by governance.
+
 ## Architectural Style
 
-The recommended architecture is an offline-first mobile application with layered separation between presentation, application logic, domain logic, and infrastructure. The system should treat scanning as a local assistive input mechanism rather than a source of truth. Final attendance state must be controlled by deterministic business rules and explicit user confirmation.
+The recommended architecture is an offline-first mobile application with layered separation between presentation, application logic, domain logic, and infrastructure. The system should treat scanning as a local assistive input mechanism rather than a source of truth. Final **present** state is controlled by explicit user confirmation; **absent** in the export file is **derived** when exporting (any participant row without a present record).
 
 ## High-Level Architecture Diagram
 
@@ -11,22 +23,23 @@ The recommended architecture is an offline-first mobile application with layered
 |                         Flutter Mobile App                       |
 |------------------------------------------------------------------|
 | Presentation Layer                                               |
-| - Scan Screen                                                    |
+| - Import / CSV Screen (MVP entry)                                |
+| - Scan Screen + live counts                                      |
 | - Match Confirmation Screen                                      |
 | - Manual Search Screen                                           |
-| - Attendance List Screen                                         |
-| - Import/Export Screens                                          |
+| - Export action (MVP; absent derived here)                      |
+| - Attendance List Screen (post-MVP / optional)                  |
 |------------------------------------------------------------------|
 | Application Layer                                                |
-| - Exam Session Controller                                        |
+| - Session Coordinator (MVP: implicit single participant list)     |
 | - Scan Workflow Controller                                       |
 | - Attendance Service                                             |
 | - Import/Export Service                                          |
-| - Audit Logging Service                                          |
+| - Audit Logging Service (post-MVP unless required)                |
 |------------------------------------------------------------------|
 | Domain Layer                                                     |
 | - Student Entity                                                 |
-| - Exam Session Entity                                            |
+| - Exam Session Entity (MVP: optional minimal row or implicit)    |
 | - Attendance Entity                                              |
 | - Matching Rules                                                 |
 | - Duplicate Prevention Rules                                     |
@@ -78,7 +91,7 @@ Responsibilities:
 
 - Normalize OCR text.
 - Identify candidate matriculation numbers.
-- Query the local roster for exact matches.
+- Query the local **participant list** for exact matches.
 - identify duplicates and ambiguous states.
 - Return clear result states to the UI layer.
 
@@ -94,7 +107,7 @@ Result states should include:
 
 Responsibilities:
 
-- Persist exam sessions, student records, attendance records, and audit events.
+- Persist student records (**participant list**), attendance records, and optionally a minimal session key; **audit events post-MVP** unless mandated.
 - Support exact lookup by matriculation number.
 - Support fast search by normalized name.
 - Persist attendance immediately after confirmation.
@@ -113,14 +126,16 @@ Responsibilities:
 1. The camera module captures an image or frame.
 2. The OCR module extracts raw text from the image.
 3. The matching engine normalizes the OCR text and detects likely matriculation candidates.
-4. The application layer checks the local database for a unique exact roster match.
+4. The application layer checks the local database for a unique exact match on the **participant list**.
 5. The UI presents one of four outcomes:
    - confirmation ready
    - duplicate warning
    - no match
    - manual fallback recommendation
-6. On confirmation, the attendance service writes the attendance event and audit entry to the local database.
-7. The UI updates counters and returns to scan mode.
+6. On confirmation, the attendance service writes the attendance event to the local database (and an audit entry **if** audit is implemented).
+7. The UI updates **present / not-yet-marked** counters and returns to scan mode.
+
+**Export path:** export service loads the **participant list** and all present records; for each student outputs `present` or `absent` (absent = no present record at export time); no separate stored “absent” row required.
 
 ## State Management Approach
 
@@ -135,11 +150,11 @@ Justification:
 
 Suggested state domains:
 
-- active exam session state
+- active participant list / implicit session state
 - scan workflow state
 - OCR processing state
 - manual search state
-- attendance summary state
+- attendance progress state (counts, export readiness)
 - import/export status state
 
 ## Technology Choices
@@ -158,7 +173,7 @@ Why it fits:
 
 - Embedded and offline by design.
 - Strong support for indexed exact lookups and transactional persistence.
-- Suitable for audit logging and structured export.
+- Suitable for structured export; audit logging optional for MVP.
 
 ### Encrypted Local Storage
 
@@ -166,6 +181,7 @@ Why it fits:
 
 - Student data and attendance are personal data.
 - Encryption at rest reduces exposure if a device is lost or temporarily accessed by an unauthorized person.
+- **MVP:** may ship without DB encryption if timelines require it; plan encryption before broader rollout ([07_security_and_privacy_design.md](07_security_and_privacy_design.md)).
 
 ### Pluggable OCR Adapter
 

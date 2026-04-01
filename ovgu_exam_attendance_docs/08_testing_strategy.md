@@ -1,5 +1,14 @@
 # 8. Testing Strategy
 
+## MVP acceptance focus
+
+- Import valid CSV; invalid file rejected with a **simple** message (no import summary screen required).
+- Scan path → unique match → confirm present → counters update.
+- Duplicate present blocked with clear UI.
+- Manual search marks present with same persistence rules.
+- **Export:** every participant row has `present` or `absent`; **absent** only for students never confirmed; recomputable on second export.
+- Restart app: present records persist.
+
 ## Testing Objectives
 
 - Validate that the attendance workflow is reliable under real exam conditions.
@@ -27,8 +36,8 @@ Focus areas:
 - import into local database
 - scan-result handoff to matching service
 - attendance persistence
-- audit event creation
-- export generation
+- audit event creation (post-MVP when implemented)
+- export generation with correct present/absent derivation
 
 ### Device and Workflow Testing
 
@@ -50,14 +59,14 @@ Focus areas:
 
 ## Functional Test Cases
 
-- import valid CSV roster
-- reject malformed CSV rows with clear summary
+- import valid participant CSV
+- reject unusable CSV with a clear message
 - scan valid student ID and match correctly
 - detect duplicate student scan
 - handle no-match scan cleanly
 - use manual search to mark present
-- reverse an attendance mark
-- export final attendance CSV
+- export final attendance CSV with present/absent columns
+- (post-MVP) reverse an attendance mark with audit
 - reopen app during active session and continue correctly
 
 ## Edge Cases
@@ -66,8 +75,8 @@ Focus areas:
 - name field missing in one or more rows
 - OCR returns partial number only
 - OCR returns multiple plausible number strings
-- student not in roster
-- very large roster compared with normal class size
+- student not on the participant list
+- very large participant list compared with normal class size
 - multiple rapid scans of the same card
 - camera initialization failure
 - low battery or power-saving mode affecting performance
@@ -123,4 +132,4 @@ Release validation should also include:
 - dependency review for hidden network or telemetry code
 - manifest review for unnecessary permissions
 - local storage inspection to verify no image retention by default
-- encryption-at-rest verification
+- encryption-at-rest verification (when implemented)

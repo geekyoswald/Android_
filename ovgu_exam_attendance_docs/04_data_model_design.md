@@ -1,124 +1,120 @@
 # 4. Data Model Design
 
+## MVP semantics
+
+- The app stores the **participant list** (students from the CSV) and **present confirmations** only.
+- **“Not yet marked”** is not a stored value; it is computed as participants without a present record.
+- **`absent` in the exported CSV** is **not stored** in MVP: on export, each participant row becomes `present` if a confirmation exists, else **`absent`**.
+- **MVP:** no stored **timestamps** (`created_at`, `marked_at`, etc.). **Post-MVP** may add marking time and audit times—see [11_future_improvements.md](11_future_improvements.md).
+
+Post-MVP entities (full `ExamSession` lifecycle, `AuditEvent` table, reversal events) remain valid extensions; see [11_future_improvements.md](11_future_improvements.md).
+
 ## Data Modeling Principles
 
 - Use minimal personal data required for attendance verification.
-- Separate roster data from attendance events.
-- Preserve auditability without storing unnecessary raw artifacts.
+- Keep **participant list** data separate from attendance (present) records.
 - Optimize exact lookup by matriculation number and fast search by name.
+- Avoid storing raw card images by default.
 
 ## Core Entities
 
-### Student
+### Student (one row from the imported CSV)
 
 Fields:
 
 - `student_id`: local primary key
-- `exam_session_id`: foreign key to exam session
+- `scope_id`: foreign key to implicit session or import batch (MVP: single active scope)
 - `matriculation_number`: string
 - `full_name`: string
-- `search_name_normalized`: string
-- `seat_number`: nullable string
-- `study_program`: nullable string
-- `created_at`: timestamp
+- `search_name_normalized`: string (lowercase, whitespace-normalized for search)
+- `seat_number`: nullable string (optional column from CSV; post-MVP if unused)
+- `study_program`: nullable string (optional; post-MVP if unused)
 
 Notes:
 
-- `matriculation_number` should be stored as text, not integer, to preserve formatting consistency.
-- `search_name_normalized` should contain a lowercase, whitespace-normalized version of the name for efficient manual lookup.
+- `matriculation_number` stored as text to preserve formatting.
+- Unique within the active participant list: `(scope_id, matriculation_number)`.
 
-### ExamSession
+### ExamSession (MVP: minimal)
 
-Fields:
+**MVP options** (choose one in implementation):
+
+- **Option A:** One implicit `scope_id` constant and metadata stored only in export filename or CSV header generated at export.
+- **Option B:** Single `ExamSession` row with optional `exam_title` only (no dates/timestamps required for MVP).
+
+Full fields for **post-MVP** expansion:
 
 - `exam_session_id`: primary key
 - `exam_code`: string
 - `exam_title`: string
 - `exam_date`: datetime
 - `status`: enum such as `draft`, `active`, `closed`
-- `roster_version`: optional string or checksum
-- `created_at`: timestamp
-- `closed_at`: nullable timestamp
+- `import_version`: optional string or checksum (of the participant CSV)
+- `created_at`, `closed_at` (and other metadata timestamps as needed)
 
-### AttendanceRecord
+### AttendanceRecord (present only in MVP)
 
 Fields:
 
 - `attendance_id`: primary key
-- `exam_session_id`: foreign key
+- `scope_id` / `exam_session_id`: foreign key
 - `student_id`: foreign key
-- `status`: enum such as `present` or `reverted`
-- `marked_at`: timestamp
-- `marked_by_method`: enum such as `ocr`, `manual_search`, `manual_entry`
-- `ocr_confidence`: nullable numeric value
-- `ocr_raw_text_excerpt`: nullable short text if retention is justified
-- `notes`: nullable text
+- `marked_by_method`: enum such as `ocr`, `manual_search` (**Post-MVP:** optional `marked_at` or full event history)
+- `ocr_confidence`: nullable numeric value (post-MVP diagnostic)
+- `ocr_raw_text_excerpt`: nullable short text (post-MVP; only if policy allows)
 
 Notes:
 
-- The design should prefer append-only attendance events for auditability.
-- A derived current status view or cached current-state table may be added for fast list rendering.
+- MVP stores **at most one effective present** per student per scope; duplicates blocked in application logic.
+- There is **no** `status: absent` row; absent exists only in **export output**.
 
-### AuditEvent
+### AuditEvent (post-MVP)
 
-Fields:
+Fields (when implemented):
 
-- `event_id`: primary key
-- `exam_session_id`: foreign key
-- `student_id`: nullable foreign key
-- `event_type`: enum such as `import`, `mark_present`, `duplicate_detected`, `revert`, `export`
-- `event_timestamp`: timestamp
-- `metadata_json`: nullable structured metadata
+- `event_id`, `exam_session_id`, optional `student_id`, `event_type`, `event_timestamp`, optional `metadata_json`
 
 ## Recommended Storage Strategy
 
-- Use SQLite as the primary local database.
-- Store the database in app-private storage only.
-- Apply encryption at rest.
+- **MVP:** SQLite (or equivalent) in app-private storage; participant list + attendance tables.
+- **Post-MVP:** encrypt at rest, formal audit table—see [07_security_and_privacy_design.md](07_security_and_privacy_design.md).
 - Do not store card images by default.
-- Retain OCR raw text only if required for troubleshooting and only in minimized form.
 
 ## Relational View
 
 ```text
-ExamSession 1 --- N Student
-ExamSession 1 --- N AttendanceRecord
-Student     1 --- N AttendanceRecord
-ExamSession 1 --- N AuditEvent
-Student     0 --- N AuditEvent
+ExamSession (optional minimal) 1 --- N Student
+ExamSession / scope            1 --- N AttendanceRecord (present only)
+Student                        1 --- 0..1 AttendanceRecord (MVP: enforced as 0 or 1 present)
+AuditEvent (post-MVP)          N --- 1 ExamSession
 ```
 
 ## Suggested Indexing Strategy
 
-Required indexes:
-
-- Unique index on `(exam_session_id, matriculation_number)`
-- Index on `(exam_session_id, search_name_normalized)`
-- Index on `(exam_session_id, marked_at)` for attendance review and export
-- Index on `(exam_session_id, status)` or equivalent current-state structure
-
-Optional optimization:
-
-- If roster size becomes large, maintain a materialized current attendance table keyed by `student_id`.
+- Unique index on `(scope_id, matriculation_number)`
+- Index on `(scope_id, search_name_normalized)` for manual search
+- Index on `(scope_id, student_id)` for attendance join
 
 ## Lookup Strategy
 
 ### Scan-Based Lookup
 
-- Normalize the OCR candidate value.
-- Query `Student` by exact `matriculation_number` within the active `exam_session_id`.
-- If exactly one row is found, show confirmation.
-- If none is found, route to rescan or manual fallback.
+- Normalize OCR candidate; query `Student` by exact `matriculation_number` within active scope.
+- Exactly one row → offer confirmation; zero or many → no auto-mark.
 
 ### Manual Search
 
-- Search by normalized prefix of `search_name_normalized`.
-- Search by exact or partial matriculation number where appropriate.
-- Return a short list optimized for quick selection.
+- Prefix/substring on `search_name_normalized`; matriculation partial or exact as implemented.
 
-## Data Integrity Rules
+## Export Derivation
 
-- A student may exist only once per exam roster.
-- Attendance should not be marked twice as valid `present` for the same student in the same session.
-- Reversal actions must remain auditable.
-- Export should operate only on the active confirmed dataset, not unvalidated transient OCR output.
+For export, join `Student` with `AttendanceRecord`:
+
+- If a present record exists for `student_id` → output `status = present` and optionally `marked_by_method` (MVP: **no** time columns).
+- Else → output `status = absent`.
+
+## Data Integrity Rules (MVP)
+
+- One row per matriculation per import batch.
+- At most one present confirmation per student per active import.
+- Export operates on **current** participant list + attendance only; OCR text never exported unless policy requires (post-MVP).

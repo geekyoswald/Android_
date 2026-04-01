@@ -1,147 +1,90 @@
 # 5. UX / UI Design Specification
 
-## UX Goals
+## MVP UX goals
 
-- Minimize invigilator effort during high-throughput check-in.
-- Keep the main flow understandable with almost no training.
-- Ensure the app remains usable when scanning performs poorly.
-- Make system status obvious at a glance.
+- Minimal screens: **import CSV → start scanning / manual search → confirm present → see counts → export**.
+- During check-in, show **present count** and **not-yet-marked count** prominently. Do **not** label students “absent” in the live UI.
+- On **Export**, produce a CSV where **`absent` means “no present record at export time.”** Show clear copy: unmarked students will appear as absent in the file.
+- Manual fallback always one easy action away from scan mode.
 
-## Primary Interaction Model
+Full-product extras (full participant browser, filters, session dashboards) are **post-MVP** unless added opportunistically without blocking ship.
 
-The application should follow a scan-first workflow. The invigilator should spend most of the session on one screen, with rapid transitions into confirmation and back to scanning. Secondary tasks such as search, review, and export should be clearly separated so they do not interfere with the main check-in flow.
+## Primary interaction model (MVP)
 
-## Key Screens
+1. User lands on **Import** (or app opens to import if no participant list is loaded).
+2. After successful import, user taps **Start scanning** to enter the operational loop.
+3. Happy path: scan → confirm → return to scan; counters update.
+4. Fallback: **Manual search** from scan screen → select → confirm.
+5. **Export** available from the main flow once a list is loaded; confirm intent and warn about absent semantics.
 
-### Scan Screen
+## Key screens
 
-Purpose:
+### Import screen (MVP mandatory)
 
-- Default operational screen during the exam.
-
-Required elements:
-
-- live camera preview
-- card framing guide
-- active exam title
-- scan status area
-- visible manual search action
-- attendance counters
-- optional torch control
-
-Interaction expectations:
-
-- The screen should open directly into scanning readiness.
-- Status should change clearly between `ready`, `processing`, `match found`, and `scan failed`.
-- After successful confirmation, the app should return to this screen automatically.
-
-### Confirmation Screen
-
-Purpose:
-
-- Prevent accidental attendance marking.
+Purpose: load the participant list from a CSV on the device.
 
 Required elements:
 
-- student full name
-- matriculation number
-- optional supporting context such as seat number
-- large `Confirm Present` action
-- cancel/back action
+- File pick / “Import CSV” primary action.
+- Path to **Start scanning** once import succeeds.
 
-Interaction expectations:
+**MVP:** no separate import summary screen; unusable files may show a simple error only.
 
-- The screen should appear only after a unique exact roster match.
-- The confirmation action should be visually dominant.
-- Cancellation should return to scan mode immediately.
+### Scan screen (MVP mandatory)
 
-### Manual Search Screen
-
-Purpose:
-
-- Guarantee reliable operation when OCR fails or is uncertain.
+Purpose: default screen during check-in.
 
 Required elements:
 
-- search field
-- prompt text explaining accepted input
-- result list
-- direct mark-present action for each result
+- Camera preview and framing guidance (implementation-dependent).
+- **Present** and **not yet marked** counts (not “absent”).
+- **Manual search** entry.
+- **Export** control (or overflow menu if space constrained; must remain discoverable).
 
-Interaction expectations:
+Interaction:
 
-- The screen must be reachable within one tap from scan mode.
-- Search should support both name and matriculation input.
-- Results should update quickly and remain readable in crowded operational conditions.
+- After confirm, return to scan readiness; counters refresh immediately.
 
-### Attendance List Screen
+### Confirmation screen (MVP mandatory)
 
-Purpose:
-
-- Provide review, correction, and progress visibility.
+Purpose: prevent mistaken marks.
 
 Required elements:
 
-- full roster list
-- attendance status indicator
-- filters for present and absent
-- search field
-- optional undo or correction action where permitted
+- Full name, matriculation number.
+- Dominant **Confirm present**; cancel/back.
 
-Interaction expectations:
+### Manual search screen (MVP mandatory)
 
-- This screen is secondary and should not compete with scan mode for attention.
-- It should support fast visual verification and troubleshooting.
+Purpose: reliable path when OCR fails.
 
-## Interaction Design Rules
+Required elements:
 
-- Keep the happy path to scan, confirm, and return.
-- Avoid multi-step dialogs unless required for data integrity.
-- Make duplicate warnings visually distinct from normal confirmations.
-- Prefer large tap targets and short labels.
-- Avoid long paragraphs on operational screens.
+- Search field (name and matriculation).
+- Result list; tap to open same confirmation pattern as scan.
 
-## Error Handling UX
+### Attendance list / filters (post-MVP or optional)
 
-Common error states:
+A full scrollable list of all participants with chips, search, and filters is **not required for MVP**. May be added later per [11_future_improvements.md](11_future_improvements.md).
 
-- OCR could not read the card.
-- OCR produced low-confidence or ambiguous text.
-- The extracted number is not in the roster.
-- The student is already marked present.
-- CSV import contains invalid rows.
-- Export failed due to file handling issues.
+## Interaction design rules
 
-Design rules for error handling:
+- Happy path: scan → confirm → back to scan in few taps.
+- Duplicate present: distinct warning (**MVP:** no “marked at time” in the message unless timestamps are added later).
+- Errors: always suggest **rescan** or **manual search**.
 
-- Every error message must explain what happened.
-- Every error message must suggest the next action.
-- The user should never be trapped in a dead-end state.
+## Error handling UX (MVP)
 
-Examples of good error behavior:
+- OCR unreadable / no match: lead to rescan or manual search.
+- Duplicate: e.g. `Student already marked present` (no time-of-mark in MVP).
+- Import: if the file cannot be used, show a short error; cannot start scanning until a valid import exists.
+- Export failure: explain and suggest retry; no partial silent failure.
 
-- `Could not read matriculation number. Try scanning again or use Manual Search.`
-- `Student already marked present at 09:12.`
-- `Import completed with 3 rejected rows. Review errors before exam start.`
+## Accessibility and environment
 
-## Accessibility Considerations
+- High contrast, large targets, readable in bright rooms (full details unchanged from institution needs).
 
-- Use high-contrast colors and do not rely only on color for status.
-- Use clear typography with sufficient text size for fast reading.
-- Provide large buttons suitable for one-handed use.
-- Ensure screen-reader compatibility for administrative screens.
-- Use optional haptic feedback for successful confirmations and duplicate warnings.
+## Offline UX
 
-## Offline UX Behavior
-
-- The application should visibly communicate that core operation does not require internet.
-- The interface should never suggest retrying network-dependent actions.
-- If OCR initialization fails, the app must still expose manual attendance workflows immediately.
-- Import and export should use local file interaction patterns only.
-
-## Usability Considerations from Real Exam Environments
-
-- Students may queue quickly, so the UI must recover instantly after each confirmation.
-- Glare and movement are normal, so rescan should be fast and low-friction.
-- Invigilators may briefly hand off the device to another staff member, so the workflow must remain self-explanatory.
-- Bright lecture halls demand stronger contrast and larger visual hierarchy than typical consumer app styling.
+- No network messaging; import/export via local file APIs only.
+- If camera unavailable, manual search and export still work if a participant list is loaded.

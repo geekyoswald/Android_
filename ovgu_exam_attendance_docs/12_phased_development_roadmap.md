@@ -1,5 +1,16 @@
 # 12. Phased Development Roadmap
 
+## MVP outcome (docs alignment)
+
+The **MVP** to aim for matches [02_product_requirements_document.md](02_product_requirements_document.md):
+
+- **Import** participant CSV from device.
+- **Scan** (on-device OCR) + **manual search** → confirm **present**; **duplicate** blocked.
+- **Live counts:** present and **not yet marked** (no “absent” label in UI).
+- **Export** CSV: each row **`present`** or **`absent`**; **`absent` = no present record at export time**.
+
+Phases below build toward that; you can **ship MVP** once import, persistence, scan/manual, counts, and export (with absent derivation) work. Later phases add robustness, polish, and items from [11_future_improvements.md](11_future_improvements.md).
+
 ## Purpose
 
 This roadmap is designed for a developer who is strong in web engineering but new to Flutter and mobile development. The sequence is intentionally incremental. Each phase produces a usable artifact, isolates one major learning area at a time, and avoids introducing OCR or mobile complexity before the underlying app structure is stable.
@@ -58,7 +69,7 @@ Build the core attendance workflow without any scanning complexity so the busine
 
 - Keep data in memory only.
 - Do not add persistence yet.
-- Do not optimize for large rosters yet.
+- Do not optimize for very large participant lists yet.
 - Do not build an audit log yet.
 - Do not introduce OCR or camera placeholders unless they are just navigation stubs.
 
@@ -82,7 +93,7 @@ Persist the manual attendance workflow locally so the app becomes genuinely offl
 ### Features to Implement
 
 - Add local database storage for students, exam session, and attendance records.
-- Seed the database with test roster data.
+- Seed the database with test participant data.
 - Restore app state after restart.
 - Persist each attendance confirmation immediately.
 - Keep manual search and duplicate prevention working on persisted data.
@@ -109,15 +120,15 @@ A manual attendance application that works offline, survives app restarts, and p
 
 ### Goal
 
-Strengthen the core product before adding scanning by making the data model and operational flow more realistic.
+Strengthen the core product before adding scanning by making the data model and operational flow more realistic. **For strict MVP**, this phase can be **skipped or minimized**: one implicit participant list and minimal import validation may suffice; named sessions and audit trail can wait.
 
 ### Features to Implement
 
-- Add explicit exam session creation or selection.
+- **Post-MVP / optional early:** Add explicit exam session creation or selection.
 - Support one active exam at a time.
-- Add simple validation rules for roster data shape.
-- Introduce a minimal audit trail for key user actions.
-- Add a dedicated attendance summary screen.
+- Add simple validation rules for participant CSV shape.
+- Introduce a minimal audit trail for key user actions (**post-MVP** for minimal product).
+- Add a dedicated attendance overview screen (**MVP needs counts on scan screen; full list optional**).
 
 ### What to KEEP SIMPLE
 
@@ -129,7 +140,7 @@ Strengthen the core product before adding scanning by making the data model and 
 ### Technical Focus
 
 - domain modeling
-- state boundaries between session, roster, and attendance
+- state boundaries between session, participant list, and attendance
 - designing for data integrity before adding complex input channels
 
 ### Deliverable
@@ -209,7 +220,7 @@ Connect scanning, OCR, and attendance into one practical exam workflow while kee
 ### Features to Implement
 
 - Connect camera capture to OCR processing.
-- Match extracted matriculation numbers against the local roster.
+- Match extracted matriculation numbers against the local **participant list**.
 - Show a confirmation screen for unique exact matches.
 - Mark attendance after explicit confirmation.
 - Detect duplicates and show a warning state.
@@ -219,7 +230,7 @@ Connect scanning, OCR, and attendance into one practical exam workflow while kee
 
 - No fuzzy matching beyond safe normalization.
 - No advanced real-time frame processing if single-capture flow is good enough.
-- No export yet.
+- **Product MVP:** CSV export (with `absent` at export time) may already exist from Phase 8 work done early—this phase focuses on the **scan path**, not on delaying export.
 - No visual polish work unless it blocks usability.
 
 ### Technical Focus
@@ -231,21 +242,21 @@ Connect scanning, OCR, and attendance into one practical exam workflow while kee
 
 ### Deliverable
 
-A usable MVP where an invigilator can scan a card, get a match, confirm attendance, and fall back to manual search when scanning fails.
+A usable scan workflow: invigilator can scan a card, get a unique match, confirm attendance, handle duplicates, and fall back to manual search when scanning fails (export may already be in place per roadmap note above).
 
 ## Phase 8: Import/Export & Exam Operations
 
 ### Goal
 
-Move from a demo-quality system to an operational tool by enabling real roster input and attendance output.
+Move from a demo-quality system to an operational tool by enabling real participant CSV input and attendance output—with **export defining `absent`** for any row without a present record ([02_product_requirements_document.md](02_product_requirements_document.md)).
 
 ### Features to Implement
 
-- Import a roster from local CSV.
-- Validate rows and show import results.
-- Replace or reset an active roster safely.
-- Export attendance to local CSV.
-- Include timestamps and marking method in export.
+- Import participant list from local CSV.
+- Minimal validation; **MVP:** no post-import summary screen (clear error only if unusable).
+- Replace or reset the active participant list safely when importing again.
+- Export attendance to local CSV: **`present` / `absent`** per row, absent computed at export time.
+- For **present** rows, include **`method`** (`scan` / `manual`) if stored; **MVP:** no time columns.
 
 ### What to KEEP SIMPLE
 
@@ -257,12 +268,12 @@ Move from a demo-quality system to an operational tool by enabling real roster i
 ### Technical Focus
 
 - file handling on mobile
-- input validation and user-facing error summaries
+- input validation and clear failure messages when needed
 - designing import/export flows that are safe and understandable offline
 
 ### Deliverable
 
-A real operational build that can take a roster file before the exam and produce an attendance file after the exam without requiring internet access.
+A real operational build that can take a participant CSV before the exam and produce an attendance file after the exam without requiring internet access.
 
 ## Phase 9: Reliability Hardening
 
@@ -426,3 +437,5 @@ Focus:
 ## Final Recommendation
 
 If a phase starts feeling too large, split it. The best roadmap is the one that keeps momentum without hiding complexity. For this project, the highest leverage path is to master the manual attendance system first, then treat camera and OCR as carefully integrated inputs layered on top of a workflow you already trust.
+
+**To reach documented MVP quickly:** prioritize Phases 1–3, then **CSV import and export** with **`absent` derived at export time** (bring Phase 8 pieces forward), then Phases 5–7 for scan and OCR. Confirm export semantics with stakeholders before pilot.

@@ -1,168 +1,149 @@
 # 2. Product Requirements Document (PRD)
 
-## Product Vision
+## MVP definition (this release)
 
-The product is a mobile attendance application for OVGU exam invigilators. It enables local scanning of student ID cards, extracts the matriculation number through on-device OCR, matches that number against a preloaded exam roster, and records attendance without internet connectivity or external services.
+The **MVP** is an offline mobile app for exam invigilators that supports:
 
-The system is designed as a practical operational tool rather than a generic campus app. The primary success criteria are speed, reliability, offline capability, and privacy compliance in real exam situations.
+| Step | Requirement |
+|------|-------------|
+| Load list | User imports a **CSV from the local device** with at least **matriculation number** and **student name** per row. |
+| Check-in | User starts scanning; **on-device OCR** reads the card, extracts a matriculation candidate, **exact-matches** the **participant list**; user **confirms** present. **Manual search** (by name and/or matriculation) marks present the same way. |
+| Progress | At any time, UI shows **count present** and **count not yet marked** (total participants minus present). The app does **not** show “absent” in the live UI. |
+| Finish | User taps **Export**; app writes a **CSV** where each **row from the imported list** has **`present`** or **`absent`**. **`absent` is computed only at export**: anyone without a confirmed present record is exported as absent. |
+
+**Out of scope for MVP** (may be added later; see [11_future_improvements.md](11_future_improvements.md)): named exam sessions with rich metadata, full browse/filter screens for all participants, formal audit trail, attendance reversal, encryption-at-rest (unless mandated), duplicate matriculation handling beyond simple reject, and other administrative features.
+
+## Product Vision (full product direction)
+
+The product is a mobile attendance application for OVGU exam invigilators. It enables local scanning of student ID cards, extracts the matriculation number through on-device OCR, matches that number against the **participant list** loaded from CSV, and records attendance without internet connectivity or external services. The MVP realizes the core loop above; the vision allows gradual addition of compliance, operations, and UX depth.
+
+The system is an operational tool, not a generic campus app. Success means speed, reliability offline, and acceptable privacy posture for the institution.
 
 ## Product Goals
 
 - Accelerate attendance verification at exam entry.
 - Reduce operational errors compared with paper-based workflows.
-- Ensure complete offline usability for scanning, lookup, attendance marking, and export.
-- Maintain a simple and low-training user experience for invigilators.
-- Preserve personal data locally with strong privacy safeguards.
+- Ensure complete offline usability for import, scanning, lookup, marking, counts, and export.
+- Keep a simple, low-training experience for invigilators.
+- Keep personal data on the device for MVP; strengthen safeguards in later releases as needed.
 
 ## Stakeholders
 
 - Invigilators who use the app during the exam.
-- Exam organizers who prepare imports and receive exports.
+- Exam organizers who prepare CSVs and collect exports.
 - OVGU faculty or administrative units responsible for exam operations.
 - OVGU data protection and IT governance stakeholders.
 
 ## User Personas
 
-### Persona A: Invigilator
+### Persona A: Invigilator Works under time pressure, needs few taps, must trust offline operation and clear fallback when scanning fails.
 
-- Works at the exam venue under strict time pressure.
-- Needs a fast, low-friction process with minimal typing.
-- May not be technically specialized.
-- Requires confidence that the system works fully offline.
-- Values clear warnings and simple fallback paths when scanning fails.
-
-### Persona B: Exam Organizer
-
-- Prepares participant lists before the exam.
-- Imports the student roster into the device.
-- Needs clean exports and predictable behavior.
-- Wants minimal setup overhead and minimal failure risk on exam day.
+### Persona B: Exam Organizer Prepares the CSV, loads it on the device, needs a predictable export file for administration.
 
 ## Functional Requirements
 
-### FR-1 Exam Session Setup
+### FR-MVP-1 CSV import
 
-- The app shall allow creation of a local exam session.
-- The app shall store exam metadata including title, date, and exam identifier.
-- The app shall support one active exam session per device at a time.
+- The app shall import a **local CSV** containing the list of **participants** (students) for the exam.
+- Required fields: **matriculation number**, **student name** (exact column names fixed in implementation).
+- The app shall validate the file with **minimal** behavior for MVP (e.g. reject unusable imports with a simple message); **no** separate post-import summary screen.
+- Importing again may **replace** the current participant list; advanced policies are post-MVP.
 
-### FR-2 CSV Import
+### FR-MVP-2 Scanning
 
-- The app shall import a local CSV file containing the student roster.
-- The app shall validate required fields before saving the roster.
-- Required fields shall include matriculation number and student name.
-- The import flow shall display a summary containing successful rows, rejected rows, and reasons for rejection.
-- The app shall reject duplicate matriculation numbers within the same exam session unless the user explicitly replaces the roster.
+- The app shall provide a **camera-based** scanning flow after the user chooses to start scanning.
+- The app shall run **OCR on-device** only; no network.
+- The app shall extract a **matriculation number candidate**, normalize it, and **exact-match** against the **loaded participant list**.
+- No automatic present mark without **explicit user confirmation** after a unique match.
 
-### FR-3 Card Scanning
+### FR-MVP-3 Matching
 
-- The app shall provide a camera-based scanning interface.
-- The app shall perform OCR locally on-device.
-- The app shall attempt to extract a matriculation number from the recognized text.
-- The app shall not require internet access for scanning or OCR.
+- **Exact match** on normalized matriculation number only for the confirmation path.
+- If zero or multiple matches, the app shall **not** mark present automatically; user may rescan or use manual search.
 
-### FR-4 Student Matching
+### FR-MVP-4 Attendance marking
 
-- The app shall match the extracted matriculation number against the locally stored roster.
-- The primary matching rule shall be exact matching on normalized matriculation number.
-- The app shall prevent automatic attendance marking when no unique match exists.
+- On confirm, the app shall persist **one present record per student** with **method** only (`scan` or `manual`). **MVP:** no stored **timestamps** (no `created_at`, `marked_at`, etc.).
+- **Duplicate** attempt: warn; **do not** create a second present record.
 
-### FR-5 Attendance Marking
+### FR-MVP-5 Manual fallback
 
-- The app shall allow the invigilator to confirm attendance after a successful match.
-- The app shall store timestamp, exam session reference, and marking method.
-- The app shall persist each confirmed attendance event immediately.
+- Search by **name** and by **matriculation**; select student and confirm present.
+- Available even if OCR or camera fails to initialize.
 
-### FR-6 Duplicate Prevention
+### FR-MVP-6 Live progress
 
-- The app shall detect when a student has already been marked present.
-- The app shall display a duplicate warning and shall not create a second valid attendance record.
-- The app shall preserve the original attendance timestamp.
+- Display **present count** and **not-yet-marked count** (or equivalent: present + remaining).
+- MVP does not require a full scrollable list of all participants; **counts are mandatory**. A simple list view may be added without changing export rules.
 
-### FR-7 Manual Fallback
+### FR-MVP-7 Export
 
-- The app shall support manual student lookup by matriculation number.
-- The app shall support manual student lookup by name.
-- The app shall allow attendance marking from search results.
-- The manual fallback path shall remain available even if OCR initialization fails.
+- **Explicit Export** action generates a **CSV** saved or shared via local file flows.
+- For **every** row from the imported participant list, output at least: identity fields (matriculation, name), **`status`** = `present` | `absent`, and for present rows **`method`** (`scan` | `manual`) if the app stores it. **MVP:** no **time** columns in the export.
+- **`absent` definition:** at export time, any student **without** a stored present confirmation is written as **`absent`**.
+- UI shall warn that **unmarked students will appear as absent** in the export (clear copy before or on confirm).
 
-### FR-8 Attendance Overview
+### Post-MVP functional items (reference)
 
-- The app shall display a list of all students in the active session.
-- The list shall show current attendance status.
-- The list shall support search and filtering.
-- The list shall show total counts for present and not-yet-marked students.
+The following are **not required for MVP** but remain valid product direction:
 
-### FR-9 Export
-
-- The app shall export attendance data to a local CSV file.
-- The export shall include exam metadata, student identity fields needed for administration, attendance status, timestamp, and marking method.
-- Export shall require explicit user action.
-
-### FR-10 Auditability
-
-- The app shall store a minimal local audit trail for important actions.
-- The audit trail shall include import, attendance confirmation, duplicate detection, attendance reversal, and export actions.
+- **FR-X1** Explicit exam session entity with title, date, exam id, draft/active/closed.
+- **FR-X2** Full attendance list with search, filters, and optional correction/undo with audit.
+- **FR-X3** Structured audit trail for import, mark, duplicate, revert, export.
+- **FR-X4** Encryption at rest and extended retention policy controls.
 
 ## Non-Functional Requirements
 
-### Performance
+### Performance (targets)
 
-- Median scan-to-result time should be below 2 seconds on approved devices.
-- Manual search should feel immediate for typical exam rosters up to at least 2,000 students.
-- App startup should be fast enough for operational use before and during exams.
+- Scan-to-confirm should feel responsive on approved hardware; manual search usable for **up to ~2,000 participants**.
 
 ### Reliability
 
-- Core features shall work fully offline.
-- A crash or forced restart shall not lose already confirmed attendance records.
-- OCR failure shall not block attendance marking because manual fallback is mandatory.
+- Core MVP flows work **fully offline**.
+- Confirmed present records **survive** app restart (persistence required for MVP realism).
+- OCR failure must **not** block marking (manual path).
 
 ### Usability
 
-- The primary attendance workflow should require as few interactions as possible.
-- Error states shall always present a clear next action.
-- The interface shall be readable in bright indoor environments and stressful, high-throughput situations.
+- Few steps on the happy path; large tap targets; readable in bright rooms.
+- Errors always suggest a **next action** (rescan, manual search).
 
-### Privacy and Security
+### Privacy and Security (MVP vs later)
 
-- No cloud APIs or external OCR services shall be used.
-- Student data shall remain in local device storage.
-- The database should be encrypted at rest.
-- The app shall request only necessary permissions.
+- **MVP:** no cloud APIs; data in **app-private** storage; minimize retained data; do not store card images by default.
+- **Post-MVP:** encrypted DB at rest, formal audit export, stricter retention—see [07_security_and_privacy_design.md](07_security_and_privacy_design.md).
 
 ### Maintainability
 
-- OCR integration shall be abstracted behind a replaceable interface.
-- Business logic shall be testable without camera or platform dependencies.
-- Import, OCR parsing, matching, and export should be modular.
+- OCR behind a **replaceable interface**; domain logic testable without camera.
 
 ## Constraints
 
-- The student ID card contains printed text only.
-- No QR, NFC, or barcode assumptions may be made.
-- No changes may be made to the physical ID cards.
-- Internet access cannot be assumed during exams.
-- One mobile device per exam is sufficient for the initial scope.
-- External APIs, especially cloud OCR services, are not allowed.
+- ID cards: **printed text**; no QR/NFC/barcode assumption; no physical card changes.
+- No reliance on internet during exam.
+- One device per exam for MVP scope.
+- No cloud OCR or external attendance APIs.
 
 ## Assumptions
 
-- The matriculation number is unique within an exam roster.
-- Exam rosters can be prepared and imported before the exam starts.
-- The university can provide approved mobile devices for exam operations.
-- Device cameras are of sufficient quality for near-range text capture.
-- Institutional policy permits local digital attendance records for exam administration.
+- Matriculation numbers are unique within one imported CSV.
+- Organizers can supply a correct CSV before or at exam start.
+- Device camera is adequate for near-range capture on supported hardware.
 
-## User Flow: Standard Exam Scenario
+## User Flow: MVP exam scenario
 
-1. Before the exam, the organizer creates the exam session and imports the roster.
-2. The invigilator opens the app and starts the active exam session.
-3. The student presents an ID card at entry.
-4. The invigilator scans the card using the camera view.
-5. The app extracts a candidate matriculation number and checks the local roster.
-6. If a unique match is found, the app shows a confirmation screen.
-7. The invigilator confirms attendance.
-8. The app stores the record and returns to scan mode.
-9. If scanning fails or the match is uncertain, the invigilator switches to manual search.
-10. After the exam, the organizer exports the attendance list as CSV.
+1. User opens app and **imports** the participant CSV from the device.
+2. User taps **Start scanning** (or equivalent).
+3. For each student: scan card → unique match → **Confirm present**; or open **Manual search** → select → confirm.
+4. As needed, user checks **present / not yet marked** counts.
+5. When finished, user taps **Export**; confirms if prompted; **CSV** contains **present** and **absent** per rules above.
+
+## Export semantics (normative for MVP)
+
+| Stored state at export | CSV `status` |
+|------------------------|--------------|
+| Present confirmed      | `present`    |
+| No present record      | `absent`     |
+
+Second export recomputes from current data; behavior is deterministic from **participant list + present records**.

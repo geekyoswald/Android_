@@ -25,6 +25,10 @@ The university needs a faster and more reliable process that does not depend on 
 - Corrections are less transparent than structured digital records.
 - The process does not scale well in crowded or stressful exam environments.
 
+## MVP alignment
+
+The **minimum viable product** targets the same objectives with a deliberately small surface area: import a **participant list** (CSV), mark students present by scanning or manual lookup, show live counts of present versus not-yet-marked students, and produce a final CSV on export where **absent** means “no present record at export time.” Further capabilities documented elsewhere can be added after MVP.
+
 ## Objectives
 
 - Reduce the time needed to verify and mark each student.

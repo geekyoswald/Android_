@@ -21,15 +21,16 @@ Later iOS options:
 
 1. Install the approved application build on the exam device.
 2. Grant camera and local file access permissions as required.
-3. Import the exam roster CSV before the exam begins.
-4. Verify that the correct exam session is active.
-5. Confirm that the device is sufficiently charged and configured for offline operation.
-6. Use the app throughout the exam without relying on network connectivity.
+3. Import the **correct** participant CSV before the exam begins (MVP has no separate named session—wrong file is operator error).
+4. Confirm that the device is sufficiently charged and configured for offline operation.
+5. Run check-in with scanning and/or manual search; use **Export** when finished to obtain **present/absent** CSV.
+
+**Post-MVP:** named exam sessions and session verification steps may be added for multi-exam device reuse.
 
 ## Operational Preparation Checklist
 
 - device battery charged
-- active exam roster imported and validated
+- participant CSV imported
 - camera permission granted
 - storage access or document picker available for import and export
 - torch functionality checked if needed

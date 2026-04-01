@@ -1,56 +1,57 @@
 # 11. Future Improvements
 
-## Identity Capture Enhancements
+Items below extend beyond the **MVP** defined in [02_product_requirements_document.md](02_product_requirements_document.md) and [README.md](README.md). They can be added incrementally without changing the core MVP loop (import → scan/manual → counts → export with present/absent).
 
-If university policy and card design evolve, future versions could support:
+## Product and workflow depth
 
-- QR code scanning
-- barcode-based identification
-- NFC-based student identification
-- redesigned machine-readable university ID cards
+- **Stored timestamps:** `marked_at` / `created_at` (or similar) on records, time in duplicate warnings, and optional time columns in export for administration.
+- **Named exam sessions:** title, date, exam id; draft / active / closed lifecycle; one active session per device.
+- **Full participant list screen:** scrollable list, search, filters (present / not yet marked); optional quick audit of who remains.
+- **Post-import report:** row counts, rejected rows, and reasons (richer than MVP).
+- **Attendance reversal / correction** with explicit reason and audit entries.
+- **Richer import:** checksum of CSV, version display, safer replace rules for duplicate matriculations.
+- **Export variants:** extra columns (seat, program), institution-specific templates, signed export packages.
+- **Session closeout checklist** before export (e.g. confirm “no more arrivals”).
 
-These options could reduce OCR dependency and improve robustness, but they are explicitly outside the current constraints.
+## Identity capture enhancements
 
-## OCR and Performance Improvements
+If university policy and card design evolve:
 
-Potential upgrades:
+- QR code, barcode, or NFC (currently out of scope by constraint).
+- Redesigned machine-readable ID cards.
 
-- automatic card-region detection before OCR
-- device-specific OCR tuning
-- better candidate ranking using roster-aware heuristics
-- improved on-device benchmarking across approved hardware
+## OCR and performance
 
-## Workflow Enhancements
+- Automatic card-region detection before OCR.
+- Device-specific OCR tuning and **list-aware** candidate ranking.
+- On-device benchmarking across approved hardware.
+- Optional retention of minimized OCR excerpts for support (policy-gated).
 
-Potential additions:
+## Administrative and compliance
 
-- seat verification during attendance
-- late-arrival tagging
-- identity mismatch notes
-- manual override reasons for auditability
-- session closeout checklist before export
+- **Structured audit trail** in DB: import, mark present, duplicate, revert, export.
+- **Encryption at rest** for SQLite and key management via platform keystore.
+- Formal **retention and deletion** flows after export.
+- Admin-only correction mode.
 
-## Administrative Improvements
+## Privacy-preserving analytics (governance only)
 
-Potential additions:
+With explicit OVGU approval:
 
-- signed or protected export packages
-- roster checksum verification on import
-- admin-only correction mode
-- structured audit export for compliance review
+- local aggregate metrics (no student identifiers)
+- opt-in pilot stats for scan success/failure patterns
 
-## Privacy-Preserving Analytics
+Never default student-level behavioral analytics.
 
-Only if explicitly approved by OVGU governance and data protection stakeholders:
+## Platform expansion
 
-- local aggregate performance metrics
-- anonymized operational statistics without student identifiers
-- opt-in pilot analytics for scan success and failure patterns
+- iOS after Android stability
+- Tablet layouts
+- Deeper MDM integration
 
-No student-level behavioral analytics should be included by default.
+## UX polish
 
-## Platform Expansion
+- Undo flows, haptics, accessibility audits
+- Stronger guidance for glare and low light
 
-- iOS support once Android deployment and OCR behavior are stable
-- tablet-optimized UI for larger screens
-- integration with institution-managed mobile device fleets
+All of the above can be scheduled **after** the MVP is stable in the field.

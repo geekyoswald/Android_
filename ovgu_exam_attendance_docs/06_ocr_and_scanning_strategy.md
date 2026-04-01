@@ -1,5 +1,9 @@
 # 6. OCR & Scanning Strategy
 
+## MVP scope
+
+MVP includes **on-device OCR** on the scan path after the **participant list** is loaded from CSV. **Absent** is never an OCR output: export derives **absent** from missing present records. Manual search remains mandatory when OCR cannot support a unique exact match.
+
 ## Objective
 
 The OCR subsystem should extract only the information necessary for attendance matching, namely the matriculation number. The design should not attempt full semantic interpretation of the entire card if the required operational outcome can be achieved more reliably through constrained extraction.
@@ -11,8 +15,8 @@ The OCR subsystem should extract only the information necessary for attendance m
 3. Run on-device OCR on the relevant image region.
 4. Normalize OCR output.
 5. Extract candidate matriculation numbers using format-aware rules.
-6. Rank candidates by validity, confidence, and roster match.
-7. Continue only when a unique exact roster match exists.
+6. Rank candidates by validity, confidence, and match against the **participant list**.
+7. Continue only when a unique exact match exists on that list.
 
 ## Matriculation Number Extraction Strategy
 
@@ -21,7 +25,7 @@ Primary rules:
 - Treat the matriculation number as the primary identifier.
 - Normalize whitespace and common OCR character confusions.
 - Prefer candidates that match the expected length and format for OVGU data.
-- Prefer candidates that produce an exact match in the active exam roster.
+- Prefer candidates that produce an exact match in the active **participant list**.
 
 Recommended post-processing:
 
@@ -43,7 +47,7 @@ Expected OCR failure modes:
 Mitigation strategy:
 
 - Use conservative normalization rules.
-- Require exact roster match before confirmation.
+- Require an exact **participant-list** match before confirmation.
 - Avoid fuzzy attendance marking based solely on OCR similarity.
 - Provide immediate rescan and manual fallback.
 
@@ -54,7 +58,7 @@ The system should apply operational confidence categories rather than trusting r
 ### High Confidence
 
 - OCR output contains one plausible candidate.
-- Candidate normalization results in a unique exact roster match.
+- Candidate normalization results in a unique exact match on the **participant list**.
 - The system may present the confirmation screen.
 
 ### Medium Confidence
