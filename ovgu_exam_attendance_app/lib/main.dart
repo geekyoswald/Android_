@@ -1,5 +1,9 @@
-import 'package:flutter/material.dart';
+import 'dart:io';
+
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/material.dart';
+
+import 'features/import/services/csv_import_validator.dart';
 
 void main() {
   runApp(const OvguAttendanceApp());
@@ -28,6 +32,8 @@ class ImportScreen extends StatefulWidget {
 
 class _ImportScreenState extends State<ImportScreen> {
   String? _selectedCsvFileName;
+  String _importStatusMessage = 'No participant file imported yet.';
+  bool _isImportSuccessful = false;
 
   Future<void> _pickCsvFile() async {
     final result = await FilePicker.pickFiles(
@@ -39,24 +45,52 @@ class _ImportScreenState extends State<ImportScreen> {
       return;
     }
 
-    if (result != null && result.files.single.name.toLowerCase().endsWith('.csv')) {
+    if (result == null) {
+      return;
+    }
+
+    final selectedFile = result.files.single;
+    if (!selectedFile.name.toLowerCase().endsWith('.csv')) {
       setState(() {
-        _selectedCsvFileName = result.files.single.name;
+        _selectedCsvFileName = null;
+        _isImportSuccessful = false;
+        _importStatusMessage = 'Error: Please select a .csv file.';
       });
       return;
     }
 
-    setState(() {
-      _selectedCsvFileName = null;
-    });
+    if (selectedFile.path == null) {
+      setState(() {
+        _selectedCsvFileName = null;
+        _isImportSuccessful = false;
+        _importStatusMessage = 'Error: Could not read selected file path.';
+      });
+      return;
+    }
+
+    try {
+      final csvContent = await File(selectedFile.path!).readAsString();
+      final validation = CsvImportValidator.validate(csvContent);
+
+      setState(() {
+        _selectedCsvFileName = validation.isValid ? selectedFile.name : null;
+        _isImportSuccessful = validation.isValid;
+        _importStatusMessage = validation.isValid
+            ? 'Success: ${selectedFile.name} imported (${validation.studentCount} students).'
+            : validation.message;
+      });
+    } catch (_) {
+      setState(() {
+        _selectedCsvFileName = null;
+        _isImportSuccessful = false;
+        _importStatusMessage = 'Error: Failed to read the selected CSV file.';
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final canStartScanning = _selectedCsvFileName != null;
-    final importStatus = _selectedCsvFileName == null
-        ? 'No participant file imported yet.'
-        : 'Selected file: $_selectedCsvFileName';
+    final canStartScanning = _isImportSuccessful;
 
     return Scaffold(
       appBar: AppBar(
@@ -92,10 +126,14 @@ class _ImportScreenState extends State<ImportScreen> {
               label: const Text('Start Scanning'),
             ),
             const SizedBox(height: 20),
-            Text(importStatus),
+            Text(_importStatusMessage),
+            if (_selectedCsvFileName != null) ...[
+              const SizedBox(height: 8),
+              Text('Selected file: $_selectedCsvFileName'),
+            ],
             const Spacer(),
             const Text(
-              'UI setup only: CSV parsing and navigation will be added next.',
+              'Step 3 complete: basic CSV validation is active.',
               textAlign: TextAlign.center,
             ),
           ],

@@ -46,3 +46,23 @@ Post-MVP enhancements (sessions with metadata, full participant review screens, 
 - OCR: On-device OCR only, with no cloud services and no external APIs.
 - Local persistence: SQLite (or equivalent) in app-private storage; **encryption at rest post-MVP** unless governance requires it earlier.
 - Distribution: Institution-controlled APK deployment on approved exam devices.
+
+## Run the Project (Flutter App)
+
+The Flutter application is in `ovgu_exam_attendance_app`.
+
+Prerequisites:
+
+- Flutter SDK installed (`flutter --version`)
+- A connected Android device or running emulator
+
+From the repository root:
+
+1. `cd ovgu_exam_attendance_app`
+2. `flutter pub get`
+3. `flutter run`
+
+Optional checks:
+
+- `flutter analyze`
+- `flutter test`
