@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import 'csv_text.dart';
+
 class CsvValidationResult {
   const CsvValidationResult({
     required this.isValid,
@@ -28,8 +30,8 @@ class CsvImportValidator {
       );
     }
 
-    final headerColumns = _parseCsvLine(lines.first)
-        .map(_normalizeHeader)
+    final headerColumns = parseCsvLine(lines.first)
+        .map(normalizeCsvHeader)
         .toSet();
 
     final missingHeaders = _requiredHeaders
@@ -57,34 +59,5 @@ class CsvImportValidator {
       message: 'Import successful.',
       studentCount: studentCount,
     );
-  }
-
-  static String _normalizeHeader(String value) {
-    return value.trim().toLowerCase().replaceAll(' ', '_');
-  }
-
-  static List<String> _parseCsvLine(String line) {
-    final columns = <String>[];
-    final current = StringBuffer();
-    var inQuotes = false;
-
-    for (var index = 0; index < line.length; index++) {
-      final char = line[index];
-      if (char == '"') {
-        inQuotes = !inQuotes;
-        continue;
-      }
-
-      if (char == ',' && !inQuotes) {
-        columns.add(current.toString().trim());
-        current.clear();
-        continue;
-      }
-
-      current.write(char);
-    }
-
-    columns.add(current.toString().trim());
-    return columns;
   }
 }

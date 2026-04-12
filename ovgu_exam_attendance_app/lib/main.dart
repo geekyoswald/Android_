@@ -3,7 +3,9 @@ import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
+import 'features/import/data/participant_repository.dart';
 import 'features/import/services/csv_import_validator.dart';
+import 'features/import/services/csv_participant_parser.dart';
 
 void main() {
   runApp(const OvguAttendanceApp());
@@ -31,8 +33,8 @@ class ImportScreen extends StatefulWidget {
 }
 
 class _ImportScreenState extends State<ImportScreen> {
-  String? _selectedCsvFileName;
-  String _importStatusMessage = 'No participant file imported yet.';
+  String _statusPrimary = 'No participant file imported yet.';
+  String? _statusSecondary;
   bool _isImportSuccessful = false;
 
   Future<void> _pickCsvFile() async {
@@ -52,18 +54,18 @@ class _ImportScreenState extends State<ImportScreen> {
     final selectedFile = result.files.single;
     if (!selectedFile.name.toLowerCase().endsWith('.csv')) {
       setState(() {
-        _selectedCsvFileName = null;
         _isImportSuccessful = false;
-        _importStatusMessage = 'Error: Please select a .csv file.';
+        _statusPrimary = 'Error: Please select a .csv file.';
+        _statusSecondary = null;
       });
       return;
     }
 
     if (selectedFile.path == null) {
       setState(() {
-        _selectedCsvFileName = null;
         _isImportSuccessful = false;
-        _importStatusMessage = 'Error: Could not read selected file path.';
+        _statusPrimary = 'Error: Could not read selected file path.';
+        _statusSecondary = null;
       });
       return;
     }
@@ -72,18 +74,50 @@ class _ImportScreenState extends State<ImportScreen> {
       final csvContent = await File(selectedFile.path!).readAsString();
       final validation = CsvImportValidator.validate(csvContent);
 
+      if (!validation.isValid) {
+        setState(() {
+          _isImportSuccessful = false;
+          _statusPrimary = validation.message;
+          _statusSecondary = null;
+        });
+        return;
+      }
+
+      final rows = CsvParticipantParser.parse(csvContent);
+
+      if (!mounted) {
+        return;
+      }
+
       setState(() {
-        _selectedCsvFileName = validation.isValid ? selectedFile.name : null;
-        _isImportSuccessful = validation.isValid;
-        _importStatusMessage = validation.isValid
-            ? 'Success: ${selectedFile.name} imported (${validation.studentCount} students).'
-            : validation.message;
+        _isImportSuccessful = false;
+        _statusPrimary =
+            'Imported CSV: ${selectedFile.name} (${rows.length} students).';
+        _statusSecondary = null;
+      });
+
+      await ParticipantRepository().replaceAllParticipants(rows);
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _isImportSuccessful = true;
+        _statusSecondary = 'Saved to database.';
+      });
+    } on FormatException catch (e) {
+      setState(() {
+        _isImportSuccessful = false;
+        _statusPrimary = 'Error: ${e.message}';
+        _statusSecondary = null;
       });
     } catch (_) {
       setState(() {
-        _selectedCsvFileName = null;
         _isImportSuccessful = false;
-        _importStatusMessage = 'Error: Failed to read the selected CSV file.';
+        _statusPrimary =
+            'Imported CSV read OK, but saving failed. Check the CSV and try again.';
+        _statusSecondary = 'Error: Could not save to database.';
       });
     }
   }
@@ -126,14 +160,14 @@ class _ImportScreenState extends State<ImportScreen> {
               label: const Text('Start Scanning'),
             ),
             const SizedBox(height: 20),
-            Text(_importStatusMessage),
-            if (_selectedCsvFileName != null) ...[
+            Text(_statusPrimary),
+            if (_statusSecondary != null) ...[
               const SizedBox(height: 8),
-              Text('Selected file: $_selectedCsvFileName'),
+              Text(_statusSecondary!),
             ],
             const Spacer(),
             const Text(
-              'Step 3 complete: basic CSV validation is active.',
+              'CSV validation and database import are active.',
               textAlign: TextAlign.center,
             ),
           ],

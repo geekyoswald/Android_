@@ -94,8 +94,33 @@ participants (one row per imported student; present flag on same row)
 - At most one present mark per row (same row updated).
 - New CSV import replaces all participant rows for the device (single-table clear + insert).
 
+## CSV import validation (implemented)
+
+Code: `ovgu_exam_attendance_app/lib/features/import/services/csv_import_validator.dart`
+
+The validator runs on the **raw CSV text** after the user picks a file. It performs **structural checks** on headers and line count.
+
+| Check | Result if it fails |
+|--------|---------------------|
+| File has no non-empty lines | Error: empty file |
+| Header row (first non-empty line) does not contain both required columns | Error: missing columns |
+| After the header, there is no data row | Error: headers but no student rows |
+
+**Required column names** (header cells are normalized: trim, lowercase, spaces → underscores, so `Full Name` matches `full_name`):
+
+- `matriculation_number`
+- `full_name`
+
+**Success:** returns a student row count (number of data lines after the header).
+
+**Row parsing (`CsvParticipantParser`):** after validation succeeds, each data row is parsed; **empty matriculation or full name** in a row fails with a line-specific error. **Duplicate matriculation** in one file fails on insert (`UNIQUE` constraint; transaction rolls back).
+
+**DB write (`ParticipantRepository.replaceAllParticipants`):** one **transaction** — `DELETE` all rows in `participants`, then `INSERT` each row with `is_present = 0`. Commit on success; rollback on any failure.
+
+**Import screen (UX):** after a successful flow, the UI shows **two lines**: first *Imported CSV: … (N students).*, then *Saved to database.* underneath. If saving fails after a good read, the second line can show a save error instead.
+
 ## Implementation Note (Current Progress)
 
 - SQLite setup: `ovgu_exam_attendance_app/lib/core/database/app_database.dart`
 - Single table `participants` in app code. **`databaseVersion`** + **`onUpgrade`** in `app_database.dart` follow the pattern documented under **Database versioning** in `README.md` (bump version and add migrations for store updates; during dev you can wipe the DB while iterating).
-- Import replacement (clear table + insert from CSV) is implemented in Step 4B when reached.
+- Import replacement (transaction: clear `participants`, insert from CSV) is implemented in `ParticipantRepository` and wired from the import screen after validation + parse.

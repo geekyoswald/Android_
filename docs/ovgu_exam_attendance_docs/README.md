@@ -17,6 +17,8 @@ Everything runs **offline**; no cloud APIs or cloud OCR.
 
 Post-MVP enhancements (sessions with metadata, full participant review screens, audit trails, encryption hardening, corrections, and so on) are documented in [11_future_improvements.md](11_future_improvements.md) and called out in individual documents.
 
+**Implemented CSV validation (headers, empty file, row count):** see [CSV import validation (implemented)](04_data_model_design.md#csv-import-validation-implemented) in [04_data_model_design.md](04_data_model_design.md).
+
 ## Document Index
 
 1. [01_problem_statement.md](01_problem_statement.md)
