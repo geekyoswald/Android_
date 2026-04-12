@@ -4,10 +4,10 @@
 
 **MVP presentation layer** maps to a small number of flows:
 
-- **Import:** pick CSV, minimal validation; **participant list** becomes the active working set (conceptually one implicit “session”). **No** separate import summary screen for MVP.
+- **Import:** pick CSV, minimal validation; **participant list** becomes the active working set on this device (no separate exam-session entity in MVP). **No** separate import summary screen for MVP.
 - **Main / scan:** camera + OCR pipeline, confirmation, duplicate handling; entry to manual search.
 - **Manual search:** find student, confirm present (shared rules with scan path).
-- **Progress:** present count and not-yet-marked count always derivable from **participant list + present records**.
+- **Progress:** present count and not-yet-marked count derivable from the **`participants` table** (rows with `is_present = 1` vs total rows).
 - **Export:** compute `present` | `absent` per row at export time; write CSV locally.
 
 Optional components in this document (audit service, exam session controller with full lifecycle, secure key management) apply to **post-MVP** hardening unless explicitly pulled into MVP by governance.
@@ -31,16 +31,16 @@ The recommended architecture is an offline-first mobile application with layered
 | - Attendance List Screen (post-MVP / optional)                  |
 |------------------------------------------------------------------|
 | Application Layer                                                |
-| - Session Coordinator (MVP: implicit single participant list)     |
+| - App Coordinator (MVP: single device, one in-memory + DB participant set) |
 | - Scan Workflow Controller                                       |
 | - Attendance Service                                             |
 | - Import/Export Service                                          |
 | - Audit Logging Service (post-MVP unless required)                |
 |------------------------------------------------------------------|
 | Domain Layer                                                     |
-| - Student Entity                                                 |
-| - Exam Session Entity (MVP: optional minimal row or implicit)    |
-| - Attendance Entity                                              |
+| - Participant / Student fields (MVP: one SQLite table)            |
+| - Exam Session Entity (post-MVP only)                            |
+| - Attendance as row flags on participant (MVP) / richer model (post-MVP) |
 | - Matching Rules                                                 |
 | - Duplicate Prevention Rules                                     |
 |------------------------------------------------------------------|
