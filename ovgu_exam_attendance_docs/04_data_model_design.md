@@ -1,120 +1,126 @@
 # 4. Data Model Design
 
-## MVP semantics
+## MVP semantics (simplified)
 
-- The app stores the **participant list** (students from the CSV) and **present confirmations** only.
-- **“Not yet marked”** is not a stored value; it is computed as participants without a present record.
-- **`absent` in the exported CSV** is **not stored** in MVP: on export, each participant row becomes `present` if a confirmation exists, else **`absent`**.
+MVP assumes **one device per exam** — no exam sessions, batches, or `scope_id`. There is a **single participant list** for that run.
+
+- One SQLite table holds **imported students** and **whether each is marked present** on the same row.
+- **`is_present`**: `0` = not yet marked at check-in time; `1` = marked present after scan or manual confirmation.
+- **Export**: any row still `is_present = 0` is written as **`absent`** in the export file; marked rows are **`present`**. (Product default is CSV; other formats are an implementation detail.)
 - **MVP:** no stored **timestamps** (`created_at`, `marked_at`, etc.). **Post-MVP** may add marking time and audit times—see [11_future_improvements.md](11_future_improvements.md).
+- **MVP:** no separate **normalized name** column — manual search uses `full_name` as stored (trimming in queries is enough for MVP).
 
-Post-MVP entities (full `ExamSession` lifecycle, `AuditEvent` table, reversal events) remain valid extensions; see [11_future_improvements.md](11_future_improvements.md).
+Post-MVP entities (sessions, audit tables, normalized search columns, encryption) remain valid extensions; see [11_future_improvements.md](11_future_improvements.md).
 
 ## Data Modeling Principles
 
 - Use minimal personal data required for attendance verification.
-- Keep **participant list** data separate from attendance (present) records.
-- Optimize exact lookup by matriculation number and fast search by name.
+- One table for MVP keeps import + marking + export logic straightforward on a single device.
+- Optimize exact lookup by matriculation number; name search uses `full_name` as imported.
 - Avoid storing raw card images by default.
 
-## Core Entities
+## MVP: single table `participants`
 
-### Student (one row from the imported CSV)
+| Column | Type | Notes |
+|--------|------|--------|
+| `id` | INTEGER PK | Auto-increment |
+| `matriculation_number` | TEXT NOT NULL | Unique per import; text preserves formatting |
+| `full_name` | TEXT NOT NULL | As in CSV |
+| `is_present` | INTEGER NOT NULL DEFAULT 0 | `0` = not marked, `1` = present |
+| `marked_by_method` | TEXT NULL | When `is_present = 1`: e.g. `scan` \| `manual` (for export column if used) |
 
-Fields:
+Constraints:
 
-- `student_id`: local primary key
-- `scope_id`: foreign key to implicit session or import batch (MVP: single active scope)
-- `matriculation_number`: string
-- `full_name`: string
-- `search_name_normalized`: string (lowercase, whitespace-normalized for search)
-- `seat_number`: nullable string (optional column from CSV; post-MVP if unused)
-- `study_program`: nullable string (optional; post-MVP if unused)
+- `UNIQUE(matriculation_number)` — one row per matriculation after each import.
 
-Notes:
+Import replacement (new CSV):
 
-- `matriculation_number` stored as text to preserve formatting.
-- Unique within the active participant list: `(scope_id, matriculation_number)`.
+- Delete all rows in `participants`, then insert rows from the new file with `is_present = 0` (in a transaction).
 
-### ExamSession (MVP: minimal)
+Marking present (scan or manual):
 
-**MVP options** (choose one in implementation):
+- Update the matching row: `is_present = 1`, set `marked_by_method` as applicable.
 
-- **Option A:** One implicit `scope_id` constant and metadata stored only in export filename or CSV header generated at export.
-- **Option B:** Single `ExamSession` row with optional `exam_title` only (no dates/timestamps required for MVP).
+Duplicate present attempt:
 
-Full fields for **post-MVP** expansion:
+- Detected when `is_present` is already `1`; show warning; do not require a second row.
 
-- `exam_session_id`: primary key
-- `exam_code`: string
-- `exam_title`: string
-- `exam_date`: datetime
-- `status`: enum such as `draft`, `active`, `closed`
-- `import_version`: optional string or checksum (of the participant CSV)
-- `created_at`, `closed_at` (and other metadata timestamps as needed)
+## Post-MVP (reference)
 
-### AttendanceRecord (present only in MVP)
+The following are **not** required for MVP but may return if product scope grows:
 
-Fields:
-
-- `attendance_id`: primary key
-- `scope_id` / `exam_session_id`: foreign key
-- `student_id`: foreign key
-- `marked_by_method`: enum such as `ocr`, `manual_search` (**Post-MVP:** optional `marked_at` or full event history)
-- `ocr_confidence`: nullable numeric value (post-MVP diagnostic)
-- `ocr_raw_text_excerpt`: nullable short text (post-MVP; only if policy allows)
-
-Notes:
-
-- MVP stores **at most one effective present** per student per scope; duplicates blocked in application logic.
-- There is **no** `status: absent` row; absent exists only in **export output**.
-
-### AuditEvent (post-MVP)
-
-Fields (when implemented):
-
-- `event_id`, `exam_session_id`, optional `student_id`, `event_type`, `event_timestamp`, optional `metadata_json`
+- `ExamSession`, `scope_id`, multi-exam devices
+- `search_name_normalized` or full-text search tuning
+- Separate `AttendanceRecord` table if you need richer event history
+- `AuditEvent` table
 
 ## Recommended Storage Strategy
 
-- **MVP:** SQLite (or equivalent) in app-private storage; participant list + attendance tables.
+- **MVP:** SQLite in app-private storage; single `participants` table.
 - **Post-MVP:** encrypt at rest, formal audit table—see [07_security_and_privacy_design.md](07_security_and_privacy_design.md).
 - Do not store card images by default.
 
-## Relational View
+## Relational View (MVP)
 
 ```text
-ExamSession (optional minimal) 1 --- N Student
-ExamSession / scope            1 --- N AttendanceRecord (present only)
-Student                        1 --- 0..1 AttendanceRecord (MVP: enforced as 0 or 1 present)
-AuditEvent (post-MVP)          N --- 1 ExamSession
+participants (one row per imported student; present flag on same row)
 ```
 
-## Suggested Indexing Strategy
+## Indexing Strategy (MVP)
 
-- Unique index on `(scope_id, matriculation_number)`
-- Index on `(scope_id, search_name_normalized)` for manual search
-- Index on `(scope_id, student_id)` for attendance join
+- Unique constraint on `matriculation_number`
+- Index on `full_name` to support simple manual search (substring / LIKE as implemented)
 
 ## Lookup Strategy
 
 ### Scan-Based Lookup
 
-- Normalize OCR candidate; query `Student` by exact `matriculation_number` within active scope.
+- Normalize OCR candidate; query `participants` by exact `matriculation_number`.
 - Exactly one row → offer confirmation; zero or many → no auto-mark.
 
 ### Manual Search
 
-- Prefix/substring on `search_name_normalized`; matriculation partial or exact as implemented.
+- Match on `full_name` and/or `matriculation_number` as implemented (no separate normalized column in MVP).
 
 ## Export Derivation
 
-For export, join `Student` with `AttendanceRecord`:
-
-- If a present record exists for `student_id` → output `status = present` and optionally `marked_by_method` (MVP: **no** time columns).
-- Else → output `status = absent`.
+- For each row in `participants`:
+  - If `is_present = 1` → `status = present` (optionally include `marked_by_method`).
+  - Else → `status = absent`.
 
 ## Data Integrity Rules (MVP)
 
-- One row per matriculation per import batch.
-- At most one present confirmation per student per active import.
-- Export operates on **current** participant list + attendance only; OCR text never exported unless policy requires (post-MVP).
+- One row per matriculation in the current import.
+- At most one present mark per row (same row updated).
+- New CSV import replaces all participant rows for the device (single-table clear + insert).
+
+## CSV import validation (implemented)
+
+Code: `ovgu_exam_attendance_app/lib/features/import/services/csv_import_validator.dart`
+
+The validator runs on the **raw CSV text** after the user picks a file. It performs **structural checks** on headers and line count.
+
+| Check | Result if it fails |
+|--------|---------------------|
+| File has no non-empty lines | Error: empty file |
+| Header row (first non-empty line) does not contain both required columns | Error: missing columns |
+| After the header, there is no data row | Error: headers but no student rows |
+
+**Required column names** (header cells are normalized: trim, lowercase, spaces → underscores, so `Full Name` matches `full_name`):
+
+- `matriculation_number`
+- `full_name`
+
+**Success:** returns a student row count (number of data lines after the header).
+
+**Row parsing (`CsvParticipantParser`):** after validation succeeds, each data row is parsed; **empty matriculation or full name** in a row fails with a line-specific error. **Duplicate matriculation** in one file fails on insert (`UNIQUE` constraint; transaction rolls back).
+
+**DB write (`ParticipantRepository.replaceAllParticipants`):** one **transaction** — `DELETE` all rows in `participants`, then `INSERT` each row with `is_present = 0`. Commit on success; rollback on any failure.
+
+**Import screen (UX):** after a successful flow, the UI shows **two lines**: first *Imported CSV: … (N students).*, then *Saved to database.* underneath. If saving fails after a good read, the second line can show a save error instead.
+
+## Implementation Note (Current Progress)
+
+- SQLite setup: `ovgu_exam_attendance_app/lib/core/database/app_database.dart`
+- Single table `participants` in app code. **`databaseVersion`** + **`onUpgrade`** in `app_database.dart` follow the pattern documented under **Database versioning** in `README.md` (bump version and add migrations for store updates; during dev you can wipe the DB while iterating).
+- Import replacement (transaction: clear `participants`, insert from CSV) is implemented in `ParticipantRepository` and wired from the import screen after validation + parse.

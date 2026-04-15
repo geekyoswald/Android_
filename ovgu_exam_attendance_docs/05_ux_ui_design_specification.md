@@ -27,6 +27,7 @@ Required elements:
 
 - File pick / “Import CSV” primary action.
 - Path to **Start scanning** once import succeeds.
+- **Implemented:** on success, two stacked status lines — **Imported CSV** (file + count), then **Saved to database** below it; errors use the same area with clear copy.
 
 **MVP:** no separate import summary screen; unusable files may show a simple error only.
 
