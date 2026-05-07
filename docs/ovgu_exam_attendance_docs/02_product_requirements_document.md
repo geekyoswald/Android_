@@ -6,12 +6,12 @@ The **MVP** is an offline mobile app for exam invigilators that supports:
 
 | Step | Requirement |
 |------|-------------|
-| Load list | User imports a **CSV from the local device** with at least **matriculation number** and **student name** per row. |
-| Check-in | User starts scanning; **on-device OCR** reads the card, extracts a matriculation candidate, **exact-matches** the **participant list**; user **confirms** present. **Manual search** (by name and/or matriculation) marks present the same way. |
-| Progress | At any time, UI shows **count present** and **count not yet marked** (total participants minus present). The app does **not** show “absent” in the live UI. |
-| Finish | User taps **Export**; app writes a **CSV** where each **row from the imported list** has **`present`** or **`absent`**. **`absent` is computed only at export**: anyone without a confirmed present record is exported as absent. |
+| Load list | User imports a **CSV from the local device** with at least **matriculation number**, **student name**, and optional **exam_group** per row. Delimiter is auto-detected (comma, semicolon, or tab). |
+| Check-in | User starts scanning; **on-device OCR** reads the card, extracts a matriculation candidate, **exact-matches** the **participant list**; user **confirms** present with a single large tap. **Manual search** (unified field: name or matriculation) marks present the same way. |
+| Progress | At any time, UI shows **count present** and **count not yet marked** (total participants minus present). If `exam_group` is present, live counts are shown **per exam group** (e.g. EinfInf 144/164, AuD 10/16). The app does **not** label students “absent” in the live UI. |
+| Finish | User taps **Export**; app writes a **CSV** where each **row from the imported list** has **`present`**, **`absent`**, **`excused`**, or **`marked`**. **`absent` is computed only at export**: anyone without a confirmed status is exported as absent. |
 
-**Out of scope for MVP** (may be added later; see [11_future_improvements.md](11_future_improvements.md)): named exam sessions with rich metadata, full browse/filter screens for all participants, formal audit trail, attendance reversal, encryption-at-rest (unless mandated), duplicate matriculation handling beyond simple reject, and other administrative features.
+**Out of scope for MVP** (may be added later; see [11_future_improvements.md](11_future_improvements.md)): named exam sessions with rich metadata, formal audit trail, encryption-at-rest (unless mandated), and other administrative features.
 
 ## Product Vision (full product direction)
 
@@ -45,16 +45,24 @@ The system is an operational tool, not a generic campus app. Success means speed
 ### FR-MVP-1 CSV import
 
 - The app shall import a **local CSV** containing the list of **participants** (students) for the exam.
-- Required fields: **matriculation number**, **student name** (exact column names fixed in implementation).
-- The app shall validate the file with **minimal** behavior for MVP (e.g. reject unusable imports with a simple message); **no** separate post-import summary screen.
-- Importing again may **replace** the current participant list; advanced policies are post-MVP.
+- Required fields: **matriculation_number**, **full_name**. Optional field: **exam_group** (used for live per-exam counts and export grouping).
+- Delimiter shall be **auto-detected** (try comma, then semicolon, then tab) — no user setting required.
+- The app shall show an **inline import result card** (not a separate screen) after import:
+  - On success: student count (e.g. "Imported 154 students"; if exam_group present, broken down by exam).
+  - On error: **all** failing rows listed at once with line numbers (e.g. "Line 14: missing matriculation number"). User can dismiss and fix the CSV before re-importing.
+  - On duplicate matriculation within the same exam group: flagged with line numbers.
+- Rows with missing matriculation number are **skipped** with a hint in the import result (e.g. "1 entry not imported — line 122: missing matriculation number"). This covers guest students.
+- Importing again **replaces** the current participant list (transaction: clear + insert).
 
 ### FR-MVP-2 Scanning
 
 - The app shall provide a **camera-based** scanning flow after the user chooses to start scanning.
 - The app shall run **OCR on-device** only; no network.
 - The app shall extract a **matriculation number candidate**, normalize it, and **exact-match** against the **loaded participant list**.
-- No automatic present mark without **explicit user confirmation** after a unique match.
+- No automatic present mark without **explicit user confirmation** after a unique match — confirmation is a **single large tap target** (e.g. a large checkmark button), not a dialog.
+- A **short haptic vibration** shall be triggered on successful confirmation. No audio signals.
+- If a student is already marked, rescanning shows "Already marked [status]" with a **[Change status]** option. User may change to: present, excused, marked, or not_marked.
+- If OCR finds no match: show the extracted matric, a "Not found" message, and two clear actions: **[Rescan]** and **[Manual search]**. No blocking dialogs.
 
 ### FR-MVP-3 Matching
 
@@ -63,24 +71,32 @@ The system is an operational tool, not a generic campus app. Success means speed
 
 ### FR-MVP-4 Attendance marking
 
-- On confirm, the app shall persist **one present record per student** with **method** only (`scan` or `manual`). **MVP:** no stored **timestamps** (no `created_at`, `marked_at`, etc.).
-- **Duplicate** attempt: warn; **do not** create a second present record.
+- Status is stored as an **integer** in the database: `0` = not_marked, `1` = present, `2` = excused, `3` = marked.
+- On confirm, the app shall update the row's **status** and **method** (`scan` or `manual`). **MVP:** no stored **timestamps** (`created_at`, `marked_at`, etc.).
+- **Duplicate / rescan:** if a student's status is already non-zero, show the current status and offer **[Change status]** — do not silently overwrite.
+- Status can be corrected at any time (e.g. to undo a fraud case: set from `present` → `marked`).
 
 ### FR-MVP-5 Manual fallback
 
-- Search by **name** and by **matriculation**; select student and confirm present.
+- **Unified single search field**: user types anything (name fragment, surname, or matriculation number digits) and sees a live-updating result list.
+- Scan path uses **exact match only**; manual search uses **substring / fuzzy matching** across both `full_name` and `matriculation_number`.
+- Select student from results → confirm present (same confirmation UX as scan path).
 - Available even if OCR or camera fails to initialize.
+- If manual search finds no result: show "Student not in list" and a **[Back to scanning]** button.
 
-### FR-MVP-6 Live progress
+### FR-MVP-6 Live progress and participant list
 
 - Display **present count** and **not-yet-marked count** (or equivalent: present + remaining).
-- MVP does not require a full scrollable list of all participants; **counts are mandatory**. A simple list view may be added without changing export rules.
+- If CSV contains `exam_group`: show live counts **per exam group** (e.g. "EinfInf 144/164 · AuD 10/16").
+- **Full scrollable participant list is MVP** (not post-MVP): shows all participants with their current status (present/excused/marked/not yet marked), sortable by matriculation number, surname, or full name. Tapping a row opens a status-change flow.
+- Sort preference persists within the current session.
 
 ### FR-MVP-7 Export
 
 - **Explicit Export** action generates a **CSV** saved or shared via local file flows.
-- For **every** row from the imported participant list, output at least: identity fields (matriculation, name), **`status`** = `present` | `absent`, and for present rows **`method`** (`scan` | `manual`) if the app stores it. **MVP:** no **time** columns in the export.
-- **`absent` definition:** at export time, any student **without** a stored present confirmation is written as **`absent`**.
+- For **every** row from the imported participant list, output at least: identity fields (matriculation_number, full_name, exam_group if present), **`status`** = `present` | `absent` | `excused` | `marked`, and for present rows **`method`** (`scan` | `manual`). **MVP:** no **time** columns in the export.
+- **`absent` definition:** at export time, any student with status `not_marked` (0) is written as **`absent`**.
+- Export preserves `exam_group` column so the organizer can process exams separately on PC.
 - UI shall warn that **unmarked students will appear as absent** in the export (clear copy before or on confirm).
 
 ### Post-MVP functional items (reference)
@@ -88,9 +104,9 @@ The system is an operational tool, not a generic campus app. Success means speed
 The following are **not required for MVP** but remain valid product direction:
 
 - **FR-X1** Explicit exam session entity with title, date, exam id, draft/active/closed.
-- **FR-X2** Full attendance list with search, filters, and optional correction/undo with audit.
-- **FR-X3** Structured audit trail for import, mark, duplicate, revert, export.
-- **FR-X4** Encryption at rest and extended retention policy controls.
+- **FR-X2** Structured audit trail for import, mark, duplicate, revert, export.
+- **FR-X3** Encryption at rest and extended retention policy controls.
+- **FR-X4** Timestamps (`marked_at`) on attendance records for formal audit purposes.
 
 ## Non-Functional Requirements
 
@@ -127,9 +143,10 @@ The following are **not required for MVP** but remain valid product direction:
 
 ## Assumptions
 
-- Matriculation numbers are unique within one imported CSV.
+- Matriculation numbers are **unique within one exam group** — a student may appear in multiple exam groups (e.g. graded and ungraded variant of the same course). The unique constraint is `UNIQUE(matriculation_number, exam_group)`.
 - Organizers can supply a correct CSV before or at exam start.
 - Device camera is adequate for near-range capture on supported hardware.
+- The exam registration system may export CSVs with different delimiters (comma, semicolon) or character encoding issues (e.g. "Göpfert" → "G?pfert"); the app handles delimiters automatically and tolerates encoding issues without crashing.
 
 ## User Flow: MVP exam scenario
 
@@ -141,9 +158,11 @@ The following are **not required for MVP** but remain valid product direction:
 
 ## Export semantics (normative for MVP)
 
-| Stored state at export | CSV `status` |
-|------------------------|--------------|
-| Present confirmed      | `present`    |
-| No present record      | `absent`     |
+| DB `status` value | CSV `status` output |
+|-------------------|---------------------|
+| `0` (not_marked)  | `absent`            |
+| `1` (present)     | `present`           |
+| `2` (excused)     | `excused`           |
+| `3` (marked)      | `marked`            |
 
-Second export recomputes from current data; behavior is deterministic from **participant list + present records**.
+Second export recomputes from current data; behavior is deterministic from **participant list + stored status values**.

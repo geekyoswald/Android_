@@ -4,11 +4,12 @@
 
 **MVP presentation layer** maps to a small number of flows:
 
-- **Import:** pick CSV, minimal validation; **participant list** becomes the active working set on this device (no separate exam-session entity in MVP). **No** separate import summary screen for MVP.
-- **Main / scan:** camera + OCR pipeline, confirmation, duplicate handling; entry to manual search.
-- **Manual search:** find student, confirm present (shared rules with scan path).
-- **Progress:** present count and not-yet-marked count derivable from the **`participants` table** (rows with `is_present = 1` vs total rows).
-- **Export:** compute `present` | `absent` per row at export time; write CSV locally.
+- **Import:** pick CSV, auto-detect delimiter, validate all rows; show **inline import result card** (count, errors with line numbers, skipped guest rows, duplicate warnings). **No** separate import summary screen.
+- **Main / scan:** camera + OCR pipeline, exact-match, single-tap confirmation, haptic feedback; entry to manual search.
+- **Manual search:** unified single search field (name or matric), fuzzy substring match, live results list; confirm present via same flow as scan.
+- **Participant list:** full scrollable list with status per row, sortable by matric/surname/name; tap to change status.
+- **Progress:** present count and not-yet-marked count derivable from the **`participants` table** (`status = 1` vs total). Per-exam counts if `exam_group` column present.
+- **Export:** compute `present` | `absent` | `excused` | `marked` per row at export time from `status` integer; write CSV locally.
 
 Optional components in this document (audit service, exam session controller with full lifecycle, secure key management) apply to **post-MVP** hardening unless explicitly pulled into MVP by governance.
 
@@ -24,11 +25,11 @@ The recommended architecture is an offline-first mobile application with layered
 |------------------------------------------------------------------|
 | Presentation Layer                                               |
 | - Import / CSV Screen (MVP entry)                                |
-| - Scan Screen + live counts                                      |
-| - Match Confirmation Screen                                      |
-| - Manual Search Screen                                           |
-| - Export action (MVP; absent derived here)                      |
-| - Attendance List Screen (post-MVP / optional)                  |
+| - Scan Screen + live counts (per-exam if exam_group present)     |
+| - Match Confirmation Screen (single-tap, haptic)                 |
+| - Manual Search Screen (unified field, fuzzy match)              |
+| - Participant List Screen (MVP; sortable, status per row)         |
+| - Export action (MVP; absent/excused/marked derived here)        |
 |------------------------------------------------------------------|
 | Application Layer                                                |
 | - App Coordinator (MVP: single device, one in-memory + DB participant set) |
@@ -38,9 +39,9 @@ The recommended architecture is an offline-first mobile application with layered
 | - Audit Logging Service (post-MVP unless required)                |
 |------------------------------------------------------------------|
 | Domain Layer                                                     |
-| - Participant / Student fields (MVP: one SQLite table)            |
+| - Participant fields: matriculation_number, full_name, exam_group, status (0-3), marked_by_method |
 | - Exam Session Entity (post-MVP only)                            |
-| - Attendance as row flags on participant (MVP) / richer model (post-MVP) |
+| - Attendance as status integer on participant row (MVP) / richer model (post-MVP) |
 | - Matching Rules                                                 |
 | - Duplicate Prevention Rules                                     |
 |------------------------------------------------------------------|
@@ -97,8 +98,9 @@ Responsibilities:
 
 Result states should include:
 
-- exact match available
-- already marked present
+- exact match available (unique student, one exam group)
+- exact match available (student in multiple exam groups — disambiguation required)
+- already marked (status non-zero — show current status, offer change)
 - no match found
 - ambiguous or low-confidence result
 - OCR failed
@@ -135,7 +137,7 @@ Responsibilities:
 6. On confirmation, the attendance service writes the attendance event to the local database (and an audit entry **if** audit is implemented).
 7. The UI updates **present / not-yet-marked** counters and returns to scan mode.
 
-**Export path:** export service loads the **participant list** and all present records; for each student outputs `present` or `absent` (absent = no present record at export time); no separate stored “absent” row required.
+**Export path:** export service loads the **participant list**; for each student derives the status label from the stored integer (`0`→`absent`, `1`→`present`, `2`→`excused`, `3`→`marked`); no separate stored “absent” row required. Export includes `exam_group` column if non-empty.
 
 ## State Management Approach
 

@@ -6,10 +6,8 @@ Items below extend beyond the **MVP** defined in [02_product_requirements_docume
 
 - **Stored timestamps:** `marked_at` / `created_at` (or similar) on records, time in duplicate warnings, and optional time columns in export for administration.
 - **Named exam sessions:** title, date, exam id; draft / active / closed lifecycle; one active session per device.
-- **Full participant list screen:** scrollable list, search, filters (present / not yet marked); optional quick audit of who remains.
-- **Post-import report:** row counts, rejected rows, and reasons (richer than MVP).
-- **Attendance reversal / correction** with explicit reason and audit entries.
-- **Richer import:** checksum of CSV, version display, safer replace rules for duplicate matriculations.
+- **Attendance reversal / correction with audit entries:** richer than the MVP status-change flow (which has no audit trail).
+- **Richer import:** checksum of CSV, version display.
 - **Export variants:** extra columns (seat, program), institution-specific templates, signed export packages.
 - **Session closeout checklist** before export (e.g. confirm “no more arrivals”).
 
@@ -51,7 +49,8 @@ Never default student-level behavioral analytics.
 
 ## UX polish
 
-- Undo flows, haptics, accessibility audits
+- Accessibility audits
 - Stronger guidance for glare and low light
+- Haptic patterns beyond single pulse (haptics basics are MVP)
 
 All of the above can be scheduled **after** the MVP is stable in the field.

@@ -122,6 +122,24 @@ Impact:
 
 Mitigations:
 
-- exact match only for confirmation-ready flow
-- no attendance marking from fuzzy OCR guesses
+- exact match only for the scan/OCR confirmation-ready flow
+- fuzzy matching used only in manual search (where the invigilator selects from a visible result list)
 - human confirmation before final persistence
+
+## Risk 8: CSV Character Encoding Issues
+
+Description:
+
+The exam registration system may export CSVs with encoding that corrupts special characters (e.g. "Göpfert" becomes "G?pfert"). This is a known issue with the upstream system.
+
+Impact:
+
+- Student names may display incorrectly in the app and in the export.
+- Search by name may fail for affected students (matriculation number search remains unaffected).
+
+Mitigations:
+
+- The invigilator can use matriculation number lookup instead of name search in affected cases.
+- The app must not crash on malformed encoding — read the file with a fallback character replacement.
+- Note in import result if encoding anomalies are detected (best-effort detection only).
+- This is a known upstream limitation; fixing it requires the registration system to export correct UTF-8, which is outside the app's control.
