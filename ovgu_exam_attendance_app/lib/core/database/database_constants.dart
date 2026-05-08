@@ -3,13 +3,9 @@ class DatabaseConstants {
 
   static const databaseName = 'ovgu_exam_attendance.db';
 
-  /// `sqflite` requires a version on [openDatabase]. See **Database versioning** in
-  /// `docs/ovgu_exam_attendance_docs/README.md`.
-  ///
-  /// - **Active dev:** often keep this at **1** and wipe the DB (uninstall / clear storage) when
-  ///   you change `CREATE TABLE`/`onCreate` without writing a migration yet.
-  /// - **Store update:** bump this number and implement `AppDatabase._upgradeDatabase`
-  ///   so existing installs migrate without losing data.
+  /// sqflite requires a version on openDatabase. Since this app is exam-time only
+  /// (no long-term data retention), no migration logic is needed — schema changes
+  /// just require a fresh install or clearing app storage during dev.
   static const databaseVersion = 1;
 
   /// One row per imported student. Present marking is stored on the same row.

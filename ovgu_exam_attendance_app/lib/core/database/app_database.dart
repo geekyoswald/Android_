@@ -32,48 +32,22 @@ class AppDatabase {
         await _createParticipantsTable(db);
         await _createIndexes(db);
       },
-      onUpgrade: (db, oldVersion, newVersion) async {
-        await _upgradeDatabase(db, oldVersion, newVersion);
-      },
     );
   }
 
-  /// Runs when an existing DB file has a **lower** stored version than [DatabaseConstants.databaseVersion].
-  /// After this completes, sqflite persists the new version — no manual bump needed.
-  ///
-  /// Add one `if (oldVersion < N)` block per shipped schema step. Example for v1 → v2:
-  /// ```dart
-  /// if (oldVersion < 2) {
-  ///   await db.execute(
-  ///     'ALTER TABLE ${DatabaseConstants.participantsTable} ADD COLUMN example TEXT',
-  ///   );
-  /// }
-  /// ```
-  Future<void> _upgradeDatabase(Database db, int oldVersion, int newVersion) async {
-    // When you bump [DatabaseConstants.databaseVersion], add migration steps here, e.g.:
-    // if (oldVersion < 2) {
-    //   await db.execute(
-    //     'ALTER TABLE ${DatabaseConstants.participantsTable} ADD COLUMN example TEXT',
-    //   );
-    // }
-    assert(oldVersion < newVersion, 'onUpgrade only runs when upgrading');
-    assert(
-      newVersion == DatabaseConstants.databaseVersion,
-      'onUpgrade target should match DatabaseConstants.databaseVersion',
-    );
-  }
-
-  /// MVP: single device, single exam — no session/scope rows.
-  /// `is_present` 0 = not yet marked; 1 = marked present (export: unmarked → absent).
+  /// status: 0 = not_marked, 1 = present, 2 = excused, 3 = marked.
+  /// exam_group: from CSV column; empty string when column absent.
+  /// Unique per (matriculation_number, exam_group) — same student may appear in multiple exam groups.
   Future<void> _createParticipantsTable(Database db) async {
     await db.execute('''
       CREATE TABLE ${DatabaseConstants.participantsTable} (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         matriculation_number TEXT NOT NULL,
         full_name TEXT NOT NULL,
-        is_present INTEGER NOT NULL DEFAULT 0,
+        exam_group TEXT NOT NULL DEFAULT '',
+        status INTEGER NOT NULL DEFAULT 0,
         marked_by_method TEXT,
-        UNIQUE(matriculation_number)
+        UNIQUE(matriculation_number, exam_group)
       )
     ''');
   }
