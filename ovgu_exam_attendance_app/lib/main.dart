@@ -4,6 +4,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
 import 'features/import/data/participant_repository.dart';
+import 'features/import/domain/import_result.dart';
 import 'features/import/services/csv_import_validator.dart';
 import 'features/import/services/csv_participant_parser.dart';
 
@@ -83,41 +84,45 @@ class _ImportScreenState extends State<ImportScreen> {
         return;
       }
 
-      final rows = CsvParticipantParser.parse(csvContent);
+      final ImportResult result = CsvParticipantParser.parse(csvContent);
 
-      if (!mounted) {
+      if (!result.isUsable) {
+        final messages = [
+          ...result.errors.map((e) => 'Line ${e.lineNumber}: ${e.message}'),
+          ...result.skippedRows.map((s) => 'Line ${s.lineNumber}: ${s.message}'),
+        ];
+        setState(() {
+          _isImportSuccessful = false;
+          _statusPrimary = messages.join('\n');
+          _statusSecondary = null;
+        });
         return;
       }
+
+      if (!mounted) return;
 
       setState(() {
         _isImportSuccessful = false;
         _statusPrimary =
-            'Imported CSV: ${selectedFile.name} (${rows.length} students).';
-        _statusSecondary = null;
+            'Parsed ${result.rows.length} students from ${selectedFile.name}.';
+        _statusSecondary = result.skippedRows.isNotEmpty
+            ? '${result.skippedRows.length} row(s) skipped (missing matriculation).'
+            : null;
       });
 
-      await ParticipantRepository().replaceAllParticipants(rows);
+      await ParticipantRepository().replaceAllParticipants(result.rows);
 
-      if (!mounted) {
-        return;
-      }
+      if (!mounted) return;
 
       setState(() {
         _isImportSuccessful = true;
         _statusSecondary = 'Saved to database.';
       });
-    } on FormatException catch (e) {
-      setState(() {
-        _isImportSuccessful = false;
-        _statusPrimary = 'Error: ${e.message}';
-        _statusSecondary = null;
-      });
     } catch (_) {
       setState(() {
         _isImportSuccessful = false;
-        _statusPrimary =
-            'Imported CSV read OK, but saving failed. Check the CSV and try again.';
-        _statusSecondary = 'Error: Could not save to database.';
+        _statusPrimary = 'Failed to read or save the file. Try again.';
+        _statusSecondary = null;
       });
     }
   }

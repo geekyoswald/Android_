@@ -30,7 +30,8 @@ class CsvImportValidator {
       );
     }
 
-    final headerColumns = parseCsvLine(lines.first)
+    final delimiter = detectDelimiter(lines.first);
+    final headerColumns = parseCsvLine(lines.first, delimiter)
         .map(normalizeCsvHeader)
         .toSet();
 

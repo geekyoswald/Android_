@@ -142,6 +142,6 @@ The validator runs on the **raw CSV text** after the user picks a file. It perfo
 ## Implementation Note (Current Progress)
 
 - SQLite setup: `ovgu_exam_attendance_app/lib/core/database/app_database.dart`
-- Single table `participants` in app code. **`databaseVersion`** + **`onUpgrade`** in `app_database.dart` follow the pattern documented under **Database versioning** in `README.md`.
-- Schema update needed (databaseVersion 2): rename `is_present` → `status` (values 0-3), add `exam_group` column, update UNIQUE constraint to `UNIQUE(matriculation_number, exam_group)`.
+- Single table `participants` in app code. Since this is a temporary exam-time app with no long-term data retention, database versioning and migrations are not needed. The schema is created fresh on each app session.
+- Schema update: rename `is_present` → `status` (values 0-3), add `exam_group` column, update UNIQUE constraint to `UNIQUE(matriculation_number, exam_group)`.
 - Import replacement (transaction: clear `participants`, insert from CSV) is implemented in `ParticipantRepository` and wired from the import screen after validation + parse.

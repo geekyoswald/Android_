@@ -61,7 +61,7 @@ If you are used to **Postgres** on a server, local **SQLite** in a mobile app be
 
 **Database file name:** `ovgu_exam_attendance.db` (see `ovgu_exam_attendance_app/lib/core/database/database_constants.dart`).
 
-**Tables are not recreated on every app launch.** The first time the app creates the DB file, `onCreate` runs once and creates the `participants` table. Later launches **open the same file**; data persists until you uninstall, clear storage, or change the schema (during development, prefer **uninstall / clear data** after schema edits — see `databaseVersion` comment in code).
+**Tables are not recreated on every app launch.** The first time the app creates the DB file, `onCreate` runs once and creates the `participants` table. Later launches open the same file. During development, after any schema change simply uninstall the app (or clear app storage) so `onCreate` runs again with the new schema.
 
 **How to inspect tables and data (development)**
 
@@ -73,24 +73,11 @@ If you are used to **Postgres** on a server, local **SQLite** in a mobile app be
 
 **Confidence check:** same idea as Postgres — if `sqlite3` shows your table and rows after an import, the schema and data are real; the only difference is **reaching the file** instead of a connection string.
 
-### Database versioning (`sqflite`)
+### Database schema
 
-`openDatabase` **requires** a `version` integer. That is not a cosmetic counter — it is how the library knows whether the **existing file on disk** was created with an **older** schema than your **current** app.
+`openDatabase` requires a `version` integer — sqflite uses it to know when to call `onCreate` (first install). This app is exam-time only with no long-term data retention, so no migration logic is needed. Schema changes during development just require a fresh install or clearing app storage.
 
-| Situation | What runs |
-|-----------|-----------|
-| **First install** (no DB file yet) | **`onCreate`** — create tables once. The file’s stored version is set to `DatabaseConstants.databaseVersion`. |
-| **Later app opens** (same version) | Neither `onCreate` nor `onUpgrade`; the file is opened as-is. |
-| **App update** (you **increase** `databaseVersion` in code) | **`onUpgrade(oldVersion, newVersion)`** — run SQL migrations (`ALTER TABLE`, new tables, data copy, etc.). **After it finishes successfully, sqflite updates the stored version** to match the new constant. |
-
-So the version number is the **official hook for migrations** when you **cannot** ask users to lose data (e.g. Play Store update).
-
-**Development workflow**
-
-- While the schema is still changing freely, you can keep **`databaseVersion` at 1** and **uninstall / clear app storage** after breaking schema edits so `onCreate` runs again. No migration step needed.
-- When you prepare a **released** build that must **preserve** existing user data across updates: **bump** `databaseVersion` in `database_constants.dart` and **implement** the migration in `AppDatabase._upgradeDatabase` in `app_database.dart` (one `if (oldVersion < N)` block per step).
-
-**Where to look in code:** `ovgu_exam_attendance_app/lib/core/database/database_constants.dart` (version) and `ovgu_exam_attendance_app/lib/core/database/app_database.dart` (`onCreate`, `onUpgrade`).
+**Where to look in code:** `ovgu_exam_attendance_app/lib/core/database/app_database.dart` (`onCreate`, `_createParticipantsTable`).
 
 ## Run the Project (Flutter App)
 
