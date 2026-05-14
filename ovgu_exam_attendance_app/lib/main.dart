@@ -37,6 +37,7 @@ class _ImportScreenState extends State<ImportScreen> {
   String _statusPrimary = 'No participant file imported yet.';
   String? _statusSecondary;
   bool _isImportSuccessful = false;
+  Color _statusColor = Colors.grey;
 
   Future<void> _pickCsvFile() async {
     final result = await FilePicker.pickFiles(
@@ -58,6 +59,7 @@ class _ImportScreenState extends State<ImportScreen> {
         _isImportSuccessful = false;
         _statusPrimary = 'Error: Please select a .csv file.';
         _statusSecondary = null;
+        _statusColor = Colors.red;
       });
       return;
     }
@@ -67,6 +69,7 @@ class _ImportScreenState extends State<ImportScreen> {
         _isImportSuccessful = false;
         _statusPrimary = 'Error: Could not read selected file path.';
         _statusSecondary = null;
+        _statusColor = Colors.red;
       });
       return;
     }
@@ -80,6 +83,7 @@ class _ImportScreenState extends State<ImportScreen> {
           _isImportSuccessful = false;
           _statusPrimary = validation.message;
           _statusSecondary = null;
+          _statusColor = Colors.red;
         });
         return;
       }
@@ -87,14 +91,15 @@ class _ImportScreenState extends State<ImportScreen> {
       final ImportResult result = CsvParticipantParser.parse(csvContent);
 
       if (!result.isUsable) {
-        final messages = [
-          ...result.errors.map((e) => 'Line ${e.lineNumber}: ${e.message}'),
-          ...result.skippedRows.map((s) => 'Line ${s.lineNumber}: ${s.message}'),
-        ];
+        final errorMessages = result.errors.map((e) => 'Line ${e.lineNumber}: ${e.message}').toList();
+        final skipMessages = result.skippedRows.map((s) => 'Line ${s.lineNumber}: ${s.message}').toList();
+        final messages = [...errorMessages, ...skipMessages];
+
         setState(() {
           _isImportSuccessful = false;
-          _statusPrimary = messages.join('\n');
+          _statusPrimary = '❌ IMPORT BLOCKED - FILE NOT SAVED\n\n${messages.join('\n')}';
           _statusSecondary = null;
+          _statusColor = Colors.red;
         });
         return;
       }
@@ -105,24 +110,35 @@ class _ImportScreenState extends State<ImportScreen> {
         _isImportSuccessful = false;
         _statusPrimary =
             'Parsed ${result.rows.length} students from ${selectedFile.name}.';
-        _statusSecondary = result.skippedRows.isNotEmpty
-            ? '${result.skippedRows.length} row(s) skipped (missing matriculation).'
-            : null;
+        _statusSecondary = null;
+        _statusColor = Colors.orange;
       });
 
       await ParticipantRepository().replaceAllParticipants(result.rows);
 
       if (!mounted) return;
 
+      // Build detailed report of soft errors (skipped rows)
+      String? detailedIssuesReport;
+      if (result.skippedRows.isNotEmpty) {
+        final skipMessages = result.skippedRows
+            .map((s) => 'Line ${s.lineNumber}: ${s.message}')
+            .toList();
+        detailedIssuesReport = '⚠️ ${result.skippedRows.length} row(s) skipped:\n${skipMessages.join('\n')}';
+      }
+
       setState(() {
         _isImportSuccessful = true;
-        _statusSecondary = 'Saved to database.';
+        _statusPrimary = '✅ IMPORT SUCCESSFUL - ${result.rows.length} students saved to database.';
+        _statusSecondary = detailedIssuesReport;
+        _statusColor = Colors.green;
       });
-    } catch (_) {
+    } catch (e) {
       setState(() {
         _isImportSuccessful = false;
-        _statusPrimary = 'Failed to read or save the file. Try again.';
+        _statusPrimary = 'Failed to read or save the file.\n\nError: ${e.toString()}';
         _statusSecondary = null;
+        _statusColor = Colors.red;
       });
     }
   }
@@ -165,10 +181,23 @@ class _ImportScreenState extends State<ImportScreen> {
               label: const Text('Start Scanning'),
             ),
             const SizedBox(height: 20),
-            Text(_statusPrimary),
+            Text(
+              _statusPrimary,
+              style: TextStyle(
+                color: _statusColor,
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
             if (_statusSecondary != null) ...[
               const SizedBox(height: 8),
-              Text(_statusSecondary!),
+              Text(
+                _statusSecondary!,
+                style: TextStyle(
+                  color: _statusColor,
+                  fontSize: 13,
+                ),
+              ),
             ],
             const Spacer(),
             const Text(

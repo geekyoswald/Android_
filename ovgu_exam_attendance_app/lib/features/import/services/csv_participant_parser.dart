@@ -44,6 +44,7 @@ class CsvParticipantParser {
     final rows = <ParticipantImportRow>[];
     final errors = <ImportIssue>[];
     final skippedRows = <ImportIssue>[];
+    final seenPairs = <String, List<int>>{}; // key: "matric|examgroup" | value: line numbers
 
     for (var i = 1; i < lines.length; i++) {
       final lineNumber = i + 1;
@@ -69,11 +70,42 @@ class CsvParticipantParser {
         continue;
       }
 
+      // Check for duplicate (matriculation_number, exam_group) pair
+      final pairKey = '$matriculation|$examGroup';
+      if (seenPairs.containsKey(pairKey)) {
+        seenPairs[pairKey]!.add(lineNumber);
+      } else {
+        seenPairs[pairKey] = [lineNumber];
+      }
+
       rows.add(ParticipantImportRow(
         matriculationNumber: matriculation,
         fullName: fullName,
         examGroup: examGroup,
       ));
+    }
+
+    // Check for duplicates and add as hard errors
+    for (final entry in seenPairs.entries) {
+      if (entry.value.length > 1) {
+        final parts = entry.key.split('|');
+        final matric = parts[0];
+        final examGroup = parts[1];
+        final linesList = entry.value.join(', ');
+
+        final examGroupSuffix = examGroup.isEmpty
+            ? ''
+            : " in exam_group '$examGroup'";
+
+        errors.add(ImportIssue(
+          lineNumber: entry.value.first,
+          message: 'Duplicate matriculation $matric$examGroupSuffix (lines: $linesList).',
+        ));
+
+        // Remove duplicate rows (keep only the first occurrence)
+        rows.removeWhere((row) =>
+            row.matriculationNumber == matric && row.examGroup == examGroup);
+      }
     }
 
     if (rows.isEmpty && errors.isEmpty) {

@@ -33,6 +33,8 @@ Post-MVP enhancements (sessions with metadata, full participant review screens, 
 10. [10_risks_and_mitigations.md](10_risks_and_mitigations.md)
 11. [11_future_improvements.md](11_future_improvements.md)
 12. [12_phased_development_roadmap.md](12_phased_development_roadmap.md)
+13. [13_project_structure_guide.md](13_project_structure_guide.md) — **How to navigate the codebase: folder structure, architecture layers, naming conventions, and where to add new code**
+14. [14_testing_strategy_and_guide.md](14_testing_strategy_and_guide.md) — **Comprehensive testing approach: unit tests (60+), integration tests (20+), test CSV files (15), and how to run tests**
 
 ## Design Principles
 
@@ -75,9 +77,16 @@ If you are used to **Postgres** on a server, local **SQLite** in a mobile app be
 
 ### Database schema
 
-`openDatabase` requires a `version` integer — sqflite uses it to know when to call `onCreate` (first install). This app is exam-time only with no long-term data retention, so no migration logic is needed. Schema changes during development just require a fresh install or clearing app storage.
+`openDatabase` requires a `version` integer — sqflite uses it to know when to call `onCreate` (first install) or `onUpgrade` (version change). 
 
-**Where to look in code:** `ovgu_exam_attendance_app/lib/core/database/app_database.dart` (`onCreate`, `_createParticipantsTable`).
+Since this app is **exam-session-only with transient data**, the `onUpgrade` callback simply **drops and recreates the schema**. This is safe because:
+- All data is temporary (imported for ONE exam, exported to CSV, then cleared)
+- No long-term data to preserve or migrate
+- Next exam session starts with fresh import anyway
+
+**Schema changes:** Just increment `databaseVersion` in `database_constants.dart`—the old database is automatically recreated with the new schema on next app launch. No complex migrations needed.
+
+**Where to look in code:** `ovgu_exam_attendance_app/lib/core/database/app_database.dart` (`onCreate`, `onUpgrade`, `_createParticipantsTable`).
 
 ## Run the Project (Flutter App)
 

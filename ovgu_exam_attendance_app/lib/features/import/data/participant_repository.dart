@@ -17,7 +17,8 @@ class ParticipantRepository {
           {
             'matriculation_number': row.matriculationNumber,
             'full_name': row.fullName,
-            'is_present': 0,
+            'exam_group': row.examGroup,
+            'status': 0,
             'marked_by_method': null,
           },
           conflictAlgorithm: ConflictAlgorithm.abort,

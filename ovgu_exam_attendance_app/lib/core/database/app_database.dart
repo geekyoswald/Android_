@@ -32,6 +32,14 @@ class AppDatabase {
         await _createParticipantsTable(db);
         await _createIndexes(db);
       },
+      onUpgrade: (db, oldVersion, newVersion) async {
+        // Exam-only app strategy: data is transient (imported for ONE exam, exported to CSV, cleared).
+        // No long-term data persistence, so DROP and RECREATE is safe and preferred.
+        // This ensures all devices get the latest schema without migration complexity.
+        await db.execute('DROP TABLE IF EXISTS ${DatabaseConstants.participantsTable}');
+        await _createParticipantsTable(db);
+        await _createIndexes(db);
+      },
     );
   }
 

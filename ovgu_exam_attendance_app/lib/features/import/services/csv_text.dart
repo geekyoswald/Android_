@@ -1,5 +1,5 @@
 String normalizeCsvHeader(String value) {
-  return value.trim().toLowerCase().replaceAll(' ', '_');
+  return value.trim().toLowerCase().replaceAll(RegExp(r'\s+'), '_');
 }
 
 String detectDelimiter(String headerLine) {
