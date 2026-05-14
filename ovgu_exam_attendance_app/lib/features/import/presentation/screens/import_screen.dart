@@ -16,10 +16,8 @@ class ImportScreen extends StatefulWidget {
 }
 
 class _ImportScreenState extends State<ImportScreen> {
-  String _statusPrimary = 'No participant file imported yet.';
-  String? _statusSecondary;
   bool _isImportSuccessful = false;
-  Color _statusColor = Colors.grey;
+  _ImportResultCard? _resultCard;
 
   Future<void> _pickCsvFile() async {
     final result = await FilePicker.pickFiles(
@@ -27,21 +25,18 @@ class _ImportScreenState extends State<ImportScreen> {
       allowedExtensions: ['csv'],
     );
 
-    if (!mounted) {
-      return;
-    }
-
-    if (result == null) {
-      return;
-    }
+    if (!mounted) return;
+    if (result == null) return;
 
     final selectedFile = result.files.single;
+
     if (!selectedFile.name.toLowerCase().endsWith('.csv')) {
       setState(() {
         _isImportSuccessful = false;
-        _statusPrimary = 'Error: Please select a .csv file.';
-        _statusSecondary = null;
-        _statusColor = Colors.red;
+        _resultCard = _ImportResultCard.error(
+          title: 'Invalid file type',
+          lines: ['Please select a .csv file.'],
+        );
       });
       return;
     }
@@ -49,9 +44,10 @@ class _ImportScreenState extends State<ImportScreen> {
     if (selectedFile.path == null) {
       setState(() {
         _isImportSuccessful = false;
-        _statusPrimary = 'Error: Could not read selected file path.';
-        _statusSecondary = null;
-        _statusColor = Colors.red;
+        _resultCard = _ImportResultCard.error(
+          title: 'Could not read file path',
+          lines: ['The selected file path is unavailable.'],
+        );
       });
       return;
     }
@@ -63,70 +59,78 @@ class _ImportScreenState extends State<ImportScreen> {
       if (!validation.isValid) {
         setState(() {
           _isImportSuccessful = false;
-          _statusPrimary = validation.message;
-          _statusSecondary = null;
-          _statusColor = Colors.red;
+          _resultCard = _ImportResultCard.error(
+            title: 'Validation failed',
+            lines: [validation.message],
+          );
         });
         return;
       }
 
-      final ImportResult result = CsvParticipantParser.parse(csvContent);
+      final ImportResult parseResult = CsvParticipantParser.parse(csvContent);
 
-      if (!result.isUsable) {
-        final errorMessages = result.errors.map((e) => 'Line ${e.lineNumber}: ${e.message}').toList();
-        final skipMessages = result.skippedRows.map((s) => 'Line ${s.lineNumber}: ${s.message}').toList();
-        final messages = [...errorMessages, ...skipMessages];
-
+      if (!parseResult.isUsable) {
+        final lines = [
+          ...parseResult.errors.map((e) => 'Line ${e.lineNumber}: ${e.message}'),
+          ...parseResult.skippedRows.map((s) => 'Line ${s.lineNumber}: ${s.message}'),
+        ];
         setState(() {
           _isImportSuccessful = false;
-          _statusPrimary = '❌ IMPORT BLOCKED - FILE NOT SAVED\n\n${messages.join('\n')}';
-          _statusSecondary = null;
-          _statusColor = Colors.red;
+          _resultCard = _ImportResultCard.error(
+            title: '❌ Import blocked — file not saved',
+            lines: lines,
+          );
         });
         return;
       }
 
       if (!mounted) return;
 
-      setState(() {
-        _isImportSuccessful = false;
-        _statusPrimary = 'Parsed ${result.rows.length} students from ${selectedFile.name}.';
-        _statusSecondary = null;
-        _statusColor = Colors.orange;
-      });
-
-      await ParticipantRepository().replaceAllParticipants(result.rows);
+      await ParticipantRepository().replaceAllParticipants(parseResult.rows);
 
       if (!mounted) return;
 
-      String? detailedIssuesReport;
-      if (result.skippedRows.isNotEmpty) {
-        final skipMessages = result.skippedRows
-            .map((s) => 'Line ${s.lineNumber}: ${s.message}')
-            .toList();
-        detailedIssuesReport = '⚠️ ${result.skippedRows.length} row(s) skipped:\n${skipMessages.join('\n')}';
+      // Per-exam-group breakdown
+      final groupCounts = <String, int>{};
+      for (final row in parseResult.rows) {
+        final key = row.examGroup.isEmpty ? '(no exam group)' : row.examGroup;
+        groupCounts[key] = (groupCounts[key] ?? 0) + 1;
       }
+      final breakdownLines = groupCounts.entries
+          .map((e) => '${e.value} student(s) — ${e.key}')
+          .toList();
+
+      final skipLines = parseResult.skippedRows
+          .map((s) => 'Line ${s.lineNumber}: ${s.message}')
+          .toList();
 
       setState(() {
         _isImportSuccessful = true;
-        _statusPrimary = '✅ IMPORT SUCCESSFUL - ${result.rows.length} students saved to database.';
-        _statusSecondary = detailedIssuesReport;
-        _statusColor = Colors.green;
+        _resultCard = _ImportResultCard.success(
+          title: '✅ Import successful — ${parseResult.rows.length} student(s) saved',
+          breakdownLines: breakdownLines,
+          skipLines: skipLines,
+        );
       });
     } catch (e) {
       setState(() {
         _isImportSuccessful = false;
-        _statusPrimary = 'Failed to read or save the file.\n\nError: ${e.toString()}';
-        _statusSecondary = null;
-        _statusColor = Colors.red;
+        _resultCard = _ImportResultCard.error(
+          title: 'Failed to read or save file',
+          lines: [e.toString()],
+        );
       });
     }
   }
 
+  void _dismissResult() {
+    setState(() {
+      _resultCard = null;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
-    final canStartScanning = _isImportSuccessful;
-
     return Scaffold(
       appBar: AppBar(
         title: const Text('OVGU Exam Attendance'),
@@ -139,15 +143,10 @@ class _ImportScreenState extends State<ImportScreen> {
             const SizedBox(height: 20),
             const Text(
               'Import Participant List',
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
-            const Text(
-              'Import a CSV from this device to begin attendance marking.',
-            ),
+            const Text('Import a CSV from this device to begin attendance marking.'),
             const SizedBox(height: 24),
             ElevatedButton.icon(
               onPressed: _pickCsvFile,
@@ -156,27 +155,15 @@ class _ImportScreenState extends State<ImportScreen> {
             ),
             const SizedBox(height: 12),
             OutlinedButton.icon(
-              onPressed: canStartScanning ? () {} : null,
+              onPressed: _isImportSuccessful ? () {} : null,
               icon: const Icon(Icons.qr_code_scanner),
               label: const Text('Start Scanning'),
             ),
-            const SizedBox(height: 20),
-            Text(
-              _statusPrimary,
-              style: TextStyle(
-                color: _statusColor,
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            if (_statusSecondary != null) ...[
-              const SizedBox(height: 8),
-              Text(
-                _statusSecondary!,
-                style: TextStyle(
-                  color: _statusColor,
-                  fontSize: 13,
-                ),
+            if (_resultCard != null) ...[
+              const SizedBox(height: 20),
+              _ResultCardWidget(
+                card: _resultCard!,
+                onDismiss: _dismissResult,
               ),
             ],
             const Spacer(),
@@ -186,6 +173,128 @@ class _ImportScreenState extends State<ImportScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _ImportResultCard {
+  final bool isSuccess;
+  final String title;
+  final List<String> lines;
+
+  const _ImportResultCard._({
+    required this.isSuccess,
+    required this.title,
+    required this.lines,
+  });
+
+  factory _ImportResultCard.error({
+    required String title,
+    required List<String> lines,
+  }) =>
+      _ImportResultCard._(isSuccess: false, title: title, lines: lines);
+
+  factory _ImportResultCard.success({
+    required String title,
+    required List<String> breakdownLines,
+    required List<String> skipLines,
+  }) {
+    final lines = [
+      ...breakdownLines,
+      if (skipLines.isNotEmpty) ...[
+        '─────────────',
+        '⚠️ ${skipLines.length} row(s) skipped:',
+        ...skipLines,
+      ],
+    ];
+    return _ImportResultCard._(isSuccess: true, title: title, lines: lines);
+  }
+}
+
+class _ResultCardWidget extends StatelessWidget {
+  final _ImportResultCard card;
+  final VoidCallback onDismiss;
+
+  const _ResultCardWidget({required this.card, required this.onDismiss});
+
+  @override
+  Widget build(BuildContext context) {
+    final color = card.isSuccess ? Colors.green : Colors.red;
+    final bgColor = card.isSuccess
+        ? Colors.green.shade50
+        : Colors.red.shade50;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: bgColor,
+        border: Border.all(color: color.withOpacity(0.4)),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 12, 8, 4),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Text(
+                    card.title,
+                    style: TextStyle(
+                      color: color.shade700,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                    ),
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close, size: 18),
+                  color: color.shade700,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                  onPressed: onDismiss,
+                  tooltip: 'Dismiss',
+                ),
+              ],
+            ),
+          ),
+          if (card.lines.isNotEmpty)
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 200),
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(12, 0, 12, 4),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: card.lines
+                      .map(
+                        (line) => Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 1),
+                          child: Text(
+                            line,
+                            style: TextStyle(
+                              color: color.shade800,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ),
+                      )
+                      .toList(),
+                ),
+              ),
+            ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: TextButton(
+                onPressed: onDismiss,
+                child: Text('OK', style: TextStyle(color: color.shade700)),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
