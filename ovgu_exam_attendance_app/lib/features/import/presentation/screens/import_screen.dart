@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
+import '../../../../main.dart';
 import '../../data/participant_repository.dart';
 import '../../domain/import_result.dart';
 import '../../services/csv_import_validator.dart';
@@ -155,7 +156,9 @@ class _ImportScreenState extends State<ImportScreen> {
             ),
             const SizedBox(height: 12),
             OutlinedButton.icon(
-              onPressed: _isImportSuccessful ? () {} : null,
+              onPressed: _isImportSuccessful
+                  ? () => Navigator.pushNamed(context, AppRoutes.scan)
+                  : null,
               icon: const Icon(Icons.qr_code_scanner),
               label: const Text('Start Scanning'),
             ),
