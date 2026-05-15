@@ -4,6 +4,12 @@ import '../../../import/data/participant_repository.dart';
 import '../../../import/domain/participant.dart';
 import '../../../../core/theme/app_theme.dart';
 
+enum SortMethod {
+  fullName,
+  matriculation,
+  surname,
+}
+
 class ParticipantListScreen extends StatefulWidget {
   const ParticipantListScreen({super.key});
 
@@ -14,6 +20,7 @@ class ParticipantListScreen extends StatefulWidget {
 class _ParticipantListScreenState extends State<ParticipantListScreen> {
   late Future<List<Participant>> _participantsFuture;
   final _repository = ParticipantRepository();
+  SortMethod _sortMethod = SortMethod.fullName;
 
   @override
   void initState() {
@@ -21,11 +28,54 @@ class _ParticipantListScreenState extends State<ParticipantListScreen> {
     _participantsFuture = _repository.getAllParticipants();
   }
 
+  List<Participant> _sortParticipants(List<Participant> participants) {
+    switch (_sortMethod) {
+      case SortMethod.fullName:
+        participants.sort((a, b) => a.fullName.compareTo(b.fullName));
+        break;
+      case SortMethod.matriculation:
+        participants.sort((a, b) => a.matriculationNumber.compareTo(b.matriculationNumber));
+        break;
+      case SortMethod.surname:
+        participants.sort((a, b) {
+          final aSurname = a.fullName.split(' ').last;
+          final bSurname = b.fullName.split(' ').last;
+          return aSurname.compareTo(bSurname);
+        });
+        break;
+    }
+    return participants;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Participant List'),
+        actions: [
+          PopupMenuButton<SortMethod>(
+            initialValue: _sortMethod,
+            onSelected: (method) {
+              setState(() {
+                _sortMethod = method;
+              });
+            },
+            itemBuilder: (context) => [
+              const PopupMenuItem(
+                value: SortMethod.fullName,
+                child: Text('Sort by Name'),
+              ),
+              const PopupMenuItem(
+                value: SortMethod.matriculation,
+                child: Text('Sort by Matriculation'),
+              ),
+              const PopupMenuItem(
+                value: SortMethod.surname,
+                child: Text('Sort by Surname'),
+              ),
+            ],
+          ),
+        ],
       ),
       body: FutureBuilder<List<Participant>>(
         future: _participantsFuture,
@@ -42,7 +92,8 @@ class _ParticipantListScreenState extends State<ParticipantListScreen> {
             );
           }
 
-          final participants = snapshot.data ?? [];
+          var participants = snapshot.data ?? [];
+          participants = _sortParticipants(participants);
 
           if (participants.isEmpty) {
             return const Center(
