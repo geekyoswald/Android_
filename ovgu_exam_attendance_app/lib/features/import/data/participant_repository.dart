@@ -95,4 +95,26 @@ class ParticipantRepository {
       whereArgs: [id],
     );
   }
+
+  Future<List<Participant>> searchParticipants(String query) async {
+    final db = await AppDatabase.instance.database;
+    final searchTerm = '%$query%';
+    final maps = await db.rawQuery(
+      'SELECT * FROM ${DatabaseConstants.participantsTable} '
+      'WHERE matriculation_number LIKE ? OR full_name LIKE ? '
+      'ORDER BY CASE WHEN matriculation_number = ? THEN 0 ELSE 1 END, full_name ASC',
+      [searchTerm, searchTerm, query],
+    );
+    return [
+      for (final map in maps)
+        Participant(
+          id: map['id'] as int,
+          matriculationNumber: map['matriculation_number'] as String,
+          fullName: map['full_name'] as String,
+          examGroup: map['exam_group'] as String? ?? '',
+          status: map['status'] as int,
+          markedByMethod: map['marked_by_method'] as String?,
+        ),
+    ];
+  }
 }
