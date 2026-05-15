@@ -82,4 +82,17 @@ class ParticipantRepository {
     }
     return counts;
   }
+
+  Future<void> updateStatus(int id, int status, String? method) async {
+    final db = await AppDatabase.instance.database;
+    await db.update(
+      DatabaseConstants.participantsTable,
+      {
+        'status': status,
+        'marked_by_method': method,
+      },
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
 }
