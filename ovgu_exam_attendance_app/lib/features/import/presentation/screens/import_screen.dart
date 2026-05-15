@@ -162,6 +162,14 @@ class _ImportScreenState extends State<ImportScreen> {
               icon: const Icon(Icons.qr_code_scanner),
               label: const Text('Start Scanning'),
             ),
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: _isImportSuccessful
+                  ? () => Navigator.pushNamed(context, AppRoutes.participantList)
+                  : null,
+              icon: const Icon(Icons.list),
+              label: const Text('View Participant List'),
+            ),
             if (_resultCard != null) ...[
               const SizedBox(height: 20),
               _ResultCardWidget(
