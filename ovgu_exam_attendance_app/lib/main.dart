@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'core/theme/app_theme.dart';
 import 'features/export/presentation/screens/export_screen.dart';
 import 'features/import/presentation/screens/import_screen.dart';
 import 'features/participants/presentation/screens/participant_list_screen.dart';
@@ -24,7 +25,7 @@ class OvguAttendanceApp extends StatelessWidget {
     return MaterialApp(
       title: 'OVGU Exam Attendance',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(),
+      theme: AppTheme.lightTheme(),
       initialRoute: AppRoutes.import_,
       routes: {
         AppRoutes.import_: (_) => const ImportScreen(),

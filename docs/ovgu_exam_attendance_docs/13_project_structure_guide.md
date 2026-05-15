@@ -7,13 +7,25 @@ This document explains the organization of the `lib/` folder in the Flutter app,
 ```
 lib/
 ├── core/                          # Shared infrastructure & utilities
-│   └── database/                  # Database setup & configuration
+│   ├── database/                  # Database setup & configuration
+│   └── theme/                     # App-wide theme & styling
 ├── features/                      # Feature-specific code (organized by feature)
-│   └── import/                    # CSV import feature
-│       ├── domain/                # Business logic & data models
-│       ├── data/                  # Database & API operations
-│       └── services/              # Reusable helper logic
-└── main.dart                      # App entry point & UI screens
+│   ├── import/                    # CSV import feature
+│   │   ├── domain/                # Business logic & data models
+│   │   ├── data/                  # Database & API operations
+│   │   ├── services/              # Reusable helper logic
+│   │   └── presentation/
+│   │       └── screens/           # import_screen.dart
+│   ├── scan/
+│   │   └── presentation/
+│   │       └── screens/           # scan_screen.dart (placeholder)
+│   ├── participants/
+│   │   └── presentation/
+│   │       └── screens/           # participant_list_screen.dart (placeholder)
+│   └── export/
+│       └── presentation/
+│           └── screens/           # export_screen.dart (placeholder)
+└── main.dart                      # App entry point, OvguAttendanceApp, AppRoutes
 ```
 
 ---
@@ -24,7 +36,7 @@ lib/
 
 | File/Folder | Purpose | What You'll Find |
 |---|---|---|
-| `main.dart` | App entry point & UI screens | `main()` function, app configuration, screens (ImportScreen, ScanScreen, etc.) |
+| `main.dart` | App entry point & routing | `main()`, `OvguAttendanceApp`, `AppRoutes` (named route constants) |
 | `core/` | Shared infrastructure | Database setup, constants, utilities used across features |
 | `features/` | Feature-specific code | Organized by feature (import, scanning, etc.); self-contained modules |
 
@@ -39,7 +51,20 @@ core/
 ├── database/
 │   ├── app_database.dart          # SQLite database initialization & schema
 │   └── database_constants.dart    # Database name, version, table names
+├── theme/
+│   └── app_theme.dart             # App-wide theme, colors, typography, styles
 ```
+
+#### **`core/theme/app_theme.dart`**
+- **What it is:** Centralized theme definition for the entire app
+- **What you'll find:**
+  - `AppTheme` class with color constants (primary, secondary, status colors)
+  - `lightTheme()` — returns Material 3 `ThemeData` with full customization
+  - Helper methods: `statusChip()`, `successTextStyle()`, `errorTextStyle()`, `warningTextStyle()`
+  - Spacing constants: `verticalSpacingSmall/Medium/Large`, `horizontalSpacingSmall/Medium/Large`
+  - Border radius constants: `borderRadiusSmall/Medium/Large`
+- **Why it exists:** Single source of truth for colors, typography, and UI consistency across all screens
+- **Used by:** `main.dart` (applies to MaterialApp), and any screen that needs consistent styling
 
 #### **`core/database/app_database.dart`**
 - **What it is:** Singleton database instance manager
@@ -360,14 +385,17 @@ flutter test test/integration/  # Run integration tests only
 | Component | Status | Notes |
 |---|---|---|
 | `core/database/` | ✅ Complete | SQLite setup done |
+| `core/theme/` | ✅ Complete | App theme with colors, typography, spacing, status indicators |
 | `features/import/domain/` | ✅ Complete | Models defined |
 | `features/import/data/` | ✅ Fixed | Schema updated to match DB (was: `is_present`, now: `status`, added `exam_group`) |
 | `features/import/services/` | ✅ Complete | Parser & validator done |
-| `test/unit/` | ✅ Complete | 50+ unit tests for CSV logic |
-| `test/integration/` | ✅ Complete | 20+ integration tests with real CSV files |
-| `test_csv_files/` | ✅ Complete | 15 test CSVs covering all scenarios |
-| `features/import/ui` | ⚠️ In main.dart | Should extract to separate file |
-| `features/scanning/` | ❌ Not started | Next feature |
+| `features/import/presentation/screens/` | ✅ Complete | ImportScreen with import result card |
+| `test/unit/` | ✅ Complete | 86 unit tests for CSV logic |
+| `test/integration/` | ✅ Complete | Integration tests with real CSV files |
+| `test_csv_files/` | ✅ Complete | 18 test CSVs covering all scenarios |
+| `features/scan/` | ❌ Not started | Placeholder exists, needs implementation |
+| `features/participants/` | ❌ Not started | Placeholder exists, needs implementation |
+| `features/export/` | ❌ Not started | Placeholder exists, needs implementation |
 
 ---
 
@@ -377,13 +405,15 @@ flutter test test/integration/  # Run integration tests only
 |---|---|
 | Database connection | `core/database/app_database.dart` |
 | Table names/versions | `core/database/database_constants.dart` |
+| App colors, typography, styles | `core/theme/app_theme.dart` |
 | Participant data model | `features/import/domain/participant_import_row.dart` |
 | Parse results | `features/import/domain/import_result.dart` |
 | Save to database | `features/import/data/participant_repository.dart` |
 | Parse CSV | `features/import/services/csv_participant_parser.dart` |
 | Validate CSV | `features/import/services/csv_import_validator.dart` |
 | CSV text utilities | `features/import/services/csv_text.dart` |
-| App screens | `main.dart` |
+| App entry & routing | `main.dart` |
+| Import screen | `features/import/presentation/screens/import_screen.dart` |
 
 ---
 
