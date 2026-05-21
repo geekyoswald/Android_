@@ -19,6 +19,21 @@ class ImportScreen extends StatefulWidget {
 class _ImportScreenState extends State<ImportScreen> {
   bool _isImportSuccessful = false;
   _ImportResultCard? _resultCard;
+  final _repository = ParticipantRepository();
+
+  @override
+  void initState() {
+    super.initState();
+    _checkExistingData();
+  }
+
+  Future<void> _checkExistingData() async {
+    final counts = await _repository.getStatusCounts();
+    final total = counts.values.fold<int>(0, (a, b) => a + b);
+    if (total > 0 && mounted) {
+      setState(() => _isImportSuccessful = true);
+    }
+  }
 
   Future<void> _pickCsvFile() async {
     final result = await FilePicker.pickFiles(
