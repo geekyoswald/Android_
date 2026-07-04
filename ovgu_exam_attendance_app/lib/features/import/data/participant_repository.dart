@@ -97,6 +97,7 @@ class ParticipantRepository {
   }
 
   Future<List<Participant>> searchParticipants(String query) async {
+    if (query.isEmpty) return [];
     final db = await AppDatabase.instance.database;
     final searchTerm = '%$query%';
     final maps = await db.rawQuery(

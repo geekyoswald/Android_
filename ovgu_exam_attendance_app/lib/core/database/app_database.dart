@@ -9,6 +9,10 @@ class AppDatabase {
   static final AppDatabase instance = AppDatabase._();
   Database? _database;
 
+  /// When set, overrides the database path. Use in tests to force an
+  /// in-memory database (pass [inMemoryDatabasePath]).
+  static String? testDatabasePath;
+
   Future<Database> get database async {
     if (_database != null) {
       return _database!;
@@ -19,8 +23,8 @@ class AppDatabase {
   }
 
   Future<Database> _openDatabase() async {
-    final databaseDirectory = await getDatabasesPath();
-    final databasePath = join(databaseDirectory, DatabaseConstants.databaseName);
+    final databasePath = testDatabasePath ??
+        join(await getDatabasesPath(), DatabaseConstants.databaseName);
 
     return openDatabase(
       databasePath,
@@ -58,6 +62,13 @@ class AppDatabase {
         UNIQUE(matriculation_number, exam_group)
       )
     ''');
+  }
+
+  /// Closes and clears the cached database instance.
+  /// Use only in tests to get a fresh in-memory DB for each test case.
+  Future<void> resetForTesting() async {
+    await _database?.close();
+    _database = null;
   }
 
   Future<void> _createIndexes(Database db) async {

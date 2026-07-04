@@ -177,13 +177,21 @@ data/
 ```dart
 class ParticipantRepository {
   Future<void> replaceAllParticipants(List<ParticipantImportRow> rows) async
+  Future<List<Participant>> getAllParticipants() async
+  Future<Map<int, int>> getStatusCounts() async
+  Future<Map<String, Map<String, int>>> getCountsByExamGroup() async
+  Future<void> updateStatus(int id, int status, String? method) async
+  Future<List<Participant>> searchParticipants(String query) async
 }
 ```
-- **Purpose:** Single source of truth for database operations
+- **Purpose:** Single source of truth for all database operations on participants
 - **What methods do:**
   - `replaceAllParticipants()` — delete all old participants, insert new ones (transaction)
-  - (Future) `getParticipantsByGroup()` — fetch participants for a group
-  - (Future) `updateAttendanceStatus()` — mark participant as present/absent
+  - `getAllParticipants()` — fetch all rows ordered by full_name ASC
+  - `getStatusCounts()` — returns `{0: n, 1: n, 2: n, 3: n}` count per status
+  - `getCountsByExamGroup()` — returns `{examGroup: {present: n, total: n}}` per group
+  - `updateStatus()` — update a participant's status and marked_by_method
+  - `searchParticipants()` — LIKE match on name or matric; exact matric ranked first; empty query returns `[]`
 - **When you use it:** Whenever you need to save/read participant data to/from database
 - **Database connection:** Uses `AppDatabase.instance.database` from core/
 
@@ -363,20 +371,27 @@ Tests are organized by type for clarity:
 ```
 test/
 ├── unit/
-│   ├── csv_text_test.dart             # Tests for csv_text.dart utilities
-│   ├── csv_import_validator_test.dart # Tests for CSV validation
-│   └── csv_participant_parser_test.dart # Tests for CSV parsing
+│   ├── csv_text_test.dart                  # Tests for csv_text.dart utilities
+│   ├── csv_import_validator_test.dart      # Tests for CSV validation
+│   └── csv_participant_parser_test.dart    # Tests for CSV parsing
+├── data/
+│   └── participant_repository_test.dart    # Unit tests for ParticipantRepository (all 6 methods)
 ├── integration/
-│   └── csv_import_integration_test.dart # Tests with real CSV files from disk
-└── widget_test.dart                   # UI/widget tests
+│   └── csv_import_integration_test.dart    # Tests with real CSV files from disk
+└── widget_test.dart                        # UI/widget tests
 ```
 
 **Running Tests:**
 ```bash
-flutter test                    # Run all tests
-flutter test test/unit/         # Run unit tests only
-flutter test test/integration/  # Run integration tests only
+flutter test                           # Run all tests
+flutter test test/unit/                # Run unit tests only
+flutter test test/data/                # Run repository tests only
+flutter test test/integration/         # Run integration tests only
+flutter test test/data/participant_repository_test.dart  # Run repository tests directly
 ```
+
+**Test infrastructure note:**
+Repository tests use `sqflite_common_ffi` (dev dependency) to run SQLite in-memory on desktop/CI — no physical device or emulator needed. Each test gets a fresh empty database via `AppDatabase.resetForTesting()` + `AppDatabase.testDatabasePath = ':memory:'`.
 
 ---
 
@@ -391,10 +406,12 @@ flutter test test/integration/  # Run integration tests only
 | `features/import/services/` | ✅ Complete | Parser & validator done |
 | `features/import/presentation/screens/` | ✅ Complete | ImportScreen with import result card |
 | `test/unit/` | ✅ Complete | 86 unit tests for CSV logic |
+| `test/data/` | ✅ Complete | 19 unit tests for ParticipantRepository (all 6 methods) |
 | `test/integration/` | ✅ Complete | Integration tests with real CSV files |
 | `test_csv_files/` | ✅ Complete | 18 test CSVs covering all scenarios |
 | `features/scan/` | ❌ Not started | Placeholder exists, needs implementation |
-| `features/participants/` | ❌ Not started | Placeholder exists, needs implementation |
+| `features/participants/` | ✅ Complete | participant_list_screen.dart with sort + tap-to-change-status |
+| `features/search/` | 🟡 Partial | manual_search_screen.dart exists, not yet wired into navigation |
 | `features/export/` | ❌ Not started | Placeholder exists, needs implementation |
 
 ---
