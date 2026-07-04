@@ -4,6 +4,7 @@ import 'package:permission_handler/permission_handler.dart';
 
 import '../../../../main.dart';
 import '../../../import/data/participant_repository.dart';
+import '../../data/ocr_service.dart';
 
 class ScanScreen extends StatefulWidget {
   const ScanScreen({super.key});
@@ -105,25 +106,38 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
     });
   }
 
-  /// Capture a still image — OCR processing will be wired in Commit 23.
+  /// Capture a still image, run OCR, and surface the detected matric number.
+  /// Matching against the participant list and navigation are handled in Commit 24.
   Future<void> _captureAndScan() async {
     if (_isCapturing || _cameraController == null || !_cameraReady) return;
     setState(() => _isCapturing = true);
     try {
       final image = await _cameraController!.takePicture();
       if (!mounted) return;
-      // Commit 23 will pass image.path to the OCR service here.
-      // For now just show a snackbar confirming the capture worked.
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Image captured: ${image.name} — OCR coming in next step'),
-          duration: const Duration(seconds: 2),
-        ),
-      );
+
+      final result = await OcrService.extractMatricNumber(image.path);
+      if (!mounted) return;
+
+      if (result.found) {
+        // Commit 24 will pass result.matricNumber to the matching engine here.
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Detected matric: ${result.matricNumber}'),
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('No matric number found — try again or use Manual Search'),
+            duration: Duration(seconds: 3),
+          ),
+        );
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Capture failed: $e')),
+          SnackBar(content: Text('Scan failed: $e')),
         );
       }
     } finally {
