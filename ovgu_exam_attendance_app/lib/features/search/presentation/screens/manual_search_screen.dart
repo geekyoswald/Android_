@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../../../import/data/participant_repository.dart';
 import '../../../import/domain/participant.dart';
-import '../../../participants/presentation/screens/participant_list_screen.dart';
 import '../../../../core/theme/app_theme.dart';
 
 class ManualSearchScreen extends StatefulWidget {

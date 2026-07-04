@@ -185,6 +185,14 @@ class _ImportScreenState extends State<ImportScreen> {
               icon: const Icon(Icons.list),
               label: const Text('View Participant List'),
             ),
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: _isImportSuccessful
+                  ? () => Navigator.pushNamed(context, AppRoutes.manualSearch)
+                  : null,
+              icon: const Icon(Icons.search),
+              label: const Text('Manual Search'),
+            ),
             if (_resultCard != null) ...[
               const SizedBox(height: 20),
               _ResultCardWidget(
