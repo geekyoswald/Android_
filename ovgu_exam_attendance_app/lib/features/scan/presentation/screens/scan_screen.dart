@@ -4,7 +4,9 @@ import 'package:permission_handler/permission_handler.dart';
 
 import '../../../../main.dart';
 import '../../../import/data/participant_repository.dart';
+import '../../../import/domain/participant.dart';
 import '../../data/ocr_service.dart';
+import '../../domain/matching_engine.dart';
 
 class ScanScreen extends StatefulWidget {
   const ScanScreen({super.key});
@@ -106,8 +108,7 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
     });
   }
 
-  /// Capture a still image, run OCR, and surface the detected matric number.
-  /// Matching against the participant list and navigation are handled in Commit 24.
+  /// Capture → OCR → match → handle result.
   Future<void> _captureAndScan() async {
     if (_isCapturing || _cameraController == null || !_cameraReady) return;
     setState(() => _isCapturing = true);
@@ -115,25 +116,23 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
       final image = await _cameraController!.takePicture();
       if (!mounted) return;
 
-      final result = await OcrService.extractMatricNumber(image.path);
+      final ocrResult = await OcrService.extractMatricNumber(image.path);
       if (!mounted) return;
 
-      if (result.found) {
-        // Commit 24 will pass result.matricNumber to the matching engine here.
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Detected matric: ${result.matricNumber}'),
-            duration: const Duration(seconds: 3),
-          ),
-        );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('No matric number found — try again or use Manual Search'),
-            duration: Duration(seconds: 3),
-          ),
-        );
+      if (!ocrResult.found) {
+        _showNoMatricSheet();
+        return;
       }
+
+      final participants = await _repository.getAllParticipants();
+      if (!mounted) return;
+
+      final matchResult = MatchingEngine.match(
+        participants: participants,
+        matricCandidate: ocrResult.matricNumber!,
+      );
+
+      _handleMatchResult(matchResult, ocrResult.matricNumber!);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -144,6 +143,205 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
       if (mounted) setState(() => _isCapturing = false);
     }
   }
+
+  // ---------------------------------------------------------------------------
+  // Match result handlers
+  // ---------------------------------------------------------------------------
+
+  void _handleMatchResult(MatchResult result, String scannedMatric) {
+    switch (result.status) {
+      case MatchStatus.uniqueMatch:
+        _navigateToConfirmation(result.participant);
+        break;
+      case MatchStatus.alreadyMarked:
+        _showAlreadyMarkedSheet(result.participant);
+        break;
+      case MatchStatus.multipleGroups:
+        _showDisambiguationSheet(result.matches);
+        break;
+      case MatchStatus.noMatch:
+        _showNotFoundSheet(scannedMatric);
+        break;
+    }
+  }
+
+  Future<void> _navigateToConfirmation(Participant participant) async {
+    final confirmed = await Navigator.pushNamed(
+      context,
+      AppRoutes.confirmation,
+      arguments: participant,
+    );
+    if (confirmed == true && mounted) {
+      _loadCounts();
+    }
+  }
+
+  void _showAlreadyMarkedSheet(Participant p) {
+    showModalBottomSheet(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(p.fullName,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      )),
+              const SizedBox(height: 4),
+              Text('Matric: ${p.matriculationNumber}'),
+              const SizedBox(height: 8),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Colors.orange.shade50,
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: Colors.orange.shade200),
+                ),
+                child: Text(
+                  'Already marked as: ${p.statusLabel}',
+                  style: TextStyle(color: Colors.orange.shade800),
+                ),
+              ),
+              const SizedBox(height: 16),
+              OutlinedButton(
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  _navigateToConfirmation(p);
+                },
+                child: const Text('Change Status'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Dismiss'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showDisambiguationSheet(List<Participant> matches) {
+    showModalBottomSheet(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                'Multiple exam groups found',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+              ),
+              Text('Matric: ${matches.first.matriculationNumber}'),
+              const SizedBox(height: 16),
+              ...matches.map(
+                (p) => Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: ElevatedButton(
+                    onPressed: () {
+                      Navigator.pop(ctx);
+                      _navigateToConfirmation(p);
+                    },
+                    child: Text(
+                        '${p.examGroup.isEmpty ? '(no group)' : p.examGroup} — ${p.statusLabel}'),
+                  ),
+                ),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Cancel'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showNotFoundSheet(String scannedMatric) {
+    showModalBottomSheet(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Text('Student not found',
+                  style: TextStyle(
+                      fontWeight: FontWeight.bold, fontSize: 16)),
+              const SizedBox(height: 8),
+              Text('Scanned matric: $scannedMatric'),
+              const SizedBox(height: 4),
+              const Text(
+                  'No participant matches this matric number.'),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Rescan'),
+              ),
+              OutlinedButton(
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  Navigator.pushNamed(context, AppRoutes.manualSearch);
+                },
+                child: const Text('Manual Search'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showNoMatricSheet() {
+    showModalBottomSheet(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Text('No matric number detected',
+                  style: TextStyle(
+                      fontWeight: FontWeight.bold, fontSize: 16)),
+              const SizedBox(height: 8),
+              const Text(
+                  'Make sure the ID card is within the frame and well-lit, then try again.'),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Try Again'),
+              ),
+              OutlinedButton(
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  Navigator.pushNamed(context, AppRoutes.manualSearch);
+                },
+                child: const Text('Manual Search'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Build
+  // ---------------------------------------------------------------------------
 
   @override
   Widget build(BuildContext context) {
@@ -162,7 +360,8 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
           IconButton(
             icon: const Icon(Icons.list),
             tooltip: 'Participant List',
-            onPressed: () => Navigator.pushNamed(context, AppRoutes.participantList),
+            onPressed: () =>
+                Navigator.pushNamed(context, AppRoutes.participantList),
           ),
         ],
       ),
@@ -181,31 +380,35 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
                 ),
                 TextButton.icon(
                   onPressed: _loadCounts,
-                  icon: const Icon(Icons.refresh, color: Colors.white70, size: 18),
-                  label: const Text('Refresh', style: TextStyle(color: Colors.white70)),
+                  icon: const Icon(Icons.refresh,
+                      color: Colors.white70, size: 18),
+                  label: const Text('Refresh',
+                      style: TextStyle(color: Colors.white70)),
                 ),
               ],
             ),
           ),
 
           // ── Camera preview or fallback ───────────────────────────────────
-          Expanded(
-            child: _buildCameraArea(),
-          ),
+          Expanded(child: _buildCameraArea()),
 
           // ── Tap-to-scan button ───────────────────────────────────────────
           Container(
             color: Colors.black,
-            padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 32),
+            padding:
+                const EdgeInsets.symmetric(vertical: 24, horizontal: 32),
             child: SizedBox(
               width: double.infinity,
               height: 56,
               child: ElevatedButton.icon(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: _cameraReady ? Theme.of(context).colorScheme.primary : Colors.grey,
+                  backgroundColor: _cameraReady
+                      ? Theme.of(context).colorScheme.primary
+                      : Colors.grey,
                   foregroundColor: Colors.white,
                 ),
-                onPressed: _cameraReady && !_isCapturing ? _captureAndScan : null,
+                onPressed:
+                    _cameraReady && !_isCapturing ? _captureAndScan : null,
                 icon: _isCapturing
                     ? const SizedBox(
                         width: 20,
@@ -257,7 +460,6 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
       );
     }
 
-    // Camera preview with framing guide overlay
     return Stack(
       alignment: Alignment.center,
       children: [
@@ -283,7 +485,8 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
         Positioned(
           bottom: 12,
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            padding:
+                const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
             decoration: BoxDecoration(
               color: Colors.black54,
               borderRadius: BorderRadius.circular(4),
