@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'core/theme/app_theme.dart';
+import 'features/confirmation/presentation/screens/confirmation_screen.dart';
 import 'features/export/presentation/screens/export_screen.dart';
 import 'features/import/presentation/screens/import_screen.dart';
 import 'features/participants/presentation/screens/participant_list_screen.dart';
@@ -16,6 +17,7 @@ class AppRoutes {
   static const scan = '/scan';
   static const participantList = '/participants';
   static const manualSearch = '/manual-search';
+  static const confirmation = '/confirmation';
   static const export_ = '/export';
 }
 
@@ -35,6 +37,15 @@ class OvguAttendanceApp extends StatelessWidget {
         AppRoutes.participantList: (_) => const ParticipantListScreen(),
         AppRoutes.manualSearch: (_) => const ManualSearchScreen(),
         AppRoutes.export_: (_) => const ExportScreen(),
+      },
+      onGenerateRoute: (settings) {
+        if (settings.name == AppRoutes.confirmation) {
+          final participant = settings.arguments as dynamic;
+          return MaterialPageRoute(
+            builder: (_) => ConfirmationScreen(participant: participant),
+          );
+        }
+        return null;
       },
     );
   }

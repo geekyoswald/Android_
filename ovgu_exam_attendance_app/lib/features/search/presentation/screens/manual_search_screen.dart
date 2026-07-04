@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../import/data/participant_repository.dart';
 import '../../../import/domain/participant.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../main.dart';
 
 class ManualSearchScreen extends StatefulWidget {
   const ManualSearchScreen({super.key});
@@ -105,7 +106,17 @@ class _ManualSearchScreenState extends State<ManualSearchScreen> {
 
   Widget _buildResultRow(Participant participant) {
     return GestureDetector(
-      onTap: () => Navigator.pop(context, participant),
+      onTap: () async {
+        final confirmed = await Navigator.pushNamed(
+          context,
+          AppRoutes.confirmation,
+          arguments: participant,
+        );
+        if (confirmed == true && mounted) {
+          // Re-run the search so the status chip refreshes from DB
+          _search(_searchController.text);
+        }
+      },
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 8),
         child: Container(
