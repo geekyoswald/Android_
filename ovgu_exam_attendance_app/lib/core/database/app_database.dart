@@ -58,7 +58,6 @@ class AppDatabase {
         full_name TEXT NOT NULL,
         exam_group TEXT NOT NULL DEFAULT '',
         status INTEGER NOT NULL DEFAULT 0,
-        marked_by_method TEXT,
         UNIQUE(matriculation_number, exam_group)
       )
     ''');

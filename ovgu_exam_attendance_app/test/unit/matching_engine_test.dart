@@ -20,7 +20,6 @@ Participant _p({
       fullName: name,
       examGroup: examGroup,
       status: status,
-      markedByMethod: null,
     );
 
 // ---------------------------------------------------------------------------

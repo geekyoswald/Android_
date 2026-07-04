@@ -4,7 +4,6 @@ class Participant {
   final String fullName;
   final String examGroup;
   final int status;
-  final String? markedByMethod;
 
   Participant({
     required this.id,
@@ -12,7 +11,6 @@ class Participant {
     required this.fullName,
     required this.examGroup,
     required this.status,
-    this.markedByMethod,
   });
 
   String get statusLabel {

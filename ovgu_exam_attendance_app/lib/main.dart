@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'core/theme/app_theme.dart';
+import 'features/import/domain/participant.dart';
 import 'features/confirmation/presentation/screens/confirmation_screen.dart';
 import 'features/export/presentation/screens/export_screen.dart';
 import 'features/import/presentation/screens/import_screen.dart';
@@ -40,7 +41,7 @@ class OvguAttendanceApp extends StatelessWidget {
       },
       onGenerateRoute: (settings) {
         if (settings.name == AppRoutes.confirmation) {
-          final participant = settings.arguments as dynamic;
+          final participant = settings.arguments as Participant;
           return MaterialPageRoute(
             builder: (_) => ConfirmationScreen(participant: participant),
           );

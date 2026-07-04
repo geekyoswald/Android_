@@ -71,12 +71,11 @@ void main() {
       expect(all.first.matriculationNumber, '999999');
     });
 
-    test('all inserted rows have status 0 and null markedByMethod', () async {
+    test('all inserted rows have status 0', () async {
       await repo.replaceAllParticipants(_rows());
       final all = await repo.getAllParticipants();
       for (final p in all) {
         expect(p.status, 0);
-        expect(p.markedByMethod, isNull);
       }
     });
   });
@@ -111,7 +110,6 @@ void main() {
       expect(p.fullName, 'Test User');
       expect(p.examGroup, 'EinfInf');
       expect(p.status, 0);
-      expect(p.markedByMethod, isNull);
     });
   });
 
@@ -130,8 +128,8 @@ void main() {
       final all = await repo.getAllParticipants();
 
       // Mark: Anna → present (1), Klaus → excused (2)
-      await repo.updateStatus(all[0].id, 1, 'manual');
-      await repo.updateStatus(all[1].id, 2, 'manual');
+      await repo.updateStatus(all[0].id, 1);
+      await repo.updateStatus(all[1].id, 2);
 
       final counts = await repo.getStatusCounts();
       expect(counts[0], 1); // Maria — not marked
@@ -168,7 +166,7 @@ void main() {
       final all = await repo.getAllParticipants();
       // Mark A (EinfInf) present
       final a = all.firstWhere((p) => p.matriculationNumber == '111111');
-      await repo.updateStatus(a.id, 1, 'scan');
+      await repo.updateStatus(a.id, 1);
 
       final counts = await repo.getCountsByExamGroup();
       expect(counts['EinfInf']!['total'], 2);
@@ -183,38 +181,36 @@ void main() {
   // -------------------------------------------------------------------------
 
   group('updateStatus', () {
-    test('updates status and markedByMethod correctly', () async {
+    test('updates status correctly', () async {
       await repo.replaceAllParticipants(_rows());
       final all = await repo.getAllParticipants();
       final target = all.first;
 
-      await repo.updateStatus(target.id, 1, 'scan');
+      await repo.updateStatus(target.id, 1);
 
       final updated = (await repo.getAllParticipants())
           .firstWhere((p) => p.id == target.id);
       expect(updated.status, 1);
-      expect(updated.markedByMethod, 'scan');
     });
 
-    test('can undo status back to 0 with null method', () async {
+    test('can undo status back to 0', () async {
       await repo.replaceAllParticipants(_rows());
       final all = await repo.getAllParticipants();
       final target = all.first;
 
-      await repo.updateStatus(target.id, 1, 'manual');
-      await repo.updateStatus(target.id, 0, null);
+      await repo.updateStatus(target.id, 1);
+      await repo.updateStatus(target.id, 0);
 
       final updated = (await repo.getAllParticipants())
           .firstWhere((p) => p.id == target.id);
       expect(updated.status, 0);
-      expect(updated.markedByMethod, isNull);
     });
 
     test('does not affect other rows', () async {
       await repo.replaceAllParticipants(_rows());
       final all = await repo.getAllParticipants();
 
-      await repo.updateStatus(all[0].id, 1, 'manual');
+      await repo.updateStatus(all[0].id, 1);
 
       final others =
           (await repo.getAllParticipants()).where((p) => p.id != all[0].id);

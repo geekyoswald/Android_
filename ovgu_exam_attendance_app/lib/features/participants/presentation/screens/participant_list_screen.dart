@@ -209,7 +209,7 @@ class _ParticipantListScreenState extends State<ParticipantListScreen> {
         width: double.infinity,
         child: OutlinedButton(
           onPressed: () async {
-            await _repository.updateStatus(participant.id, status, null);
+            await _repository.updateStatus(participant.id, status);
             if (mounted) {
               setState(() {
                 _participantsFuture = _repository.getAllParticipants();

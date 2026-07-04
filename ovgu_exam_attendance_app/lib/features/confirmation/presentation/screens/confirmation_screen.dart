@@ -7,7 +7,10 @@ import '../../../import/domain/participant.dart';
 class ConfirmationScreen extends StatefulWidget {
   final Participant participant;
 
-  const ConfirmationScreen({super.key, required this.participant});
+  const ConfirmationScreen({
+    super.key,
+    required this.participant,
+  });
 
   @override
   State<ConfirmationScreen> createState() => _ConfirmationScreenState();
@@ -22,7 +25,7 @@ class _ConfirmationScreenState extends State<ConfirmationScreen> {
     setState(() => _isConfirming = true);
 
     await HapticFeedback.mediumImpact();
-    await _repository.updateStatus(widget.participant.id, 1, 'manual');
+    await _repository.updateStatus(widget.participant.id, 1);
 
     if (mounted) {
       Navigator.pop(context, true); // true = confirmed

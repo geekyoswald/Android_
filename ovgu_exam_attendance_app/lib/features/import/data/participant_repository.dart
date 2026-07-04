@@ -20,7 +20,6 @@ class ParticipantRepository {
             'full_name': row.fullName,
             'exam_group': row.examGroup,
             'status': 0,
-            'marked_by_method': null,
           },
           conflictAlgorithm: ConflictAlgorithm.abort,
         );
@@ -42,7 +41,6 @@ class ParticipantRepository {
           fullName: map['full_name'] as String,
           examGroup: map['exam_group'] as String? ?? '',
           status: map['status'] as int,
-          markedByMethod: map['marked_by_method'] as String?,
         ),
     ];
   }
@@ -83,14 +81,11 @@ class ParticipantRepository {
     return counts;
   }
 
-  Future<void> updateStatus(int id, int status, String? method) async {
+  Future<void> updateStatus(int id, int status) async {
     final db = await AppDatabase.instance.database;
     await db.update(
       DatabaseConstants.participantsTable,
-      {
-        'status': status,
-        'marked_by_method': method,
-      },
+      {'status': status},
       where: 'id = ?',
       whereArgs: [id],
     );
@@ -114,7 +109,6 @@ class ParticipantRepository {
           fullName: map['full_name'] as String,
           examGroup: map['exam_group'] as String? ?? '',
           status: map['status'] as int,
-          markedByMethod: map['marked_by_method'] as String?,
         ),
     ];
   }
