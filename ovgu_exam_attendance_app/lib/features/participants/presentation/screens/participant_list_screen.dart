@@ -169,27 +169,34 @@ class _ParticipantListScreenState extends State<ParticipantListScreen> {
   void _showStatusBottomSheet(Participant participant) {
     showModalBottomSheet(
       context: context,
-      builder: (context) => Container(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Change Status for ${participant.fullName}',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            const SizedBox(height: 16),
-            _buildStatusOption(participant, 1, 'Present'),
-            _buildStatusOption(participant, 2, 'Excused'),
-            _buildStatusOption(participant, 3, 'Marked'),
-            _buildStatusOption(participant, 0, 'Not Marked (Undo)'),
-            const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
-            ),
-          ],
+      builder: (context) => SingleChildScrollView(
+        child: Container(
+          padding: EdgeInsets.fromLTRB(
+            16,
+            16,
+            16,
+            MediaQuery.of(context).viewInsets.bottom + 16,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Change Status for ${participant.fullName}',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              const SizedBox(height: 16),
+              _buildStatusOption(participant, 1, 'Present'),
+              _buildStatusOption(participant, 2, 'Excused'),
+              _buildStatusOption(participant, 3, 'Marked'),
+              _buildStatusOption(participant, 0, 'Not Marked (Undo)'),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cancel'),
+              ),
+            ],
+          ),
         ),
       ),
     );
