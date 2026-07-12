@@ -11,7 +11,12 @@ enum SortMethod {
 }
 
 class ParticipantListScreen extends StatefulWidget {
-  const ParticipantListScreen({super.key});
+  final ParticipantRepository repository;
+
+  ParticipantListScreen({
+    super.key,
+    ParticipantRepository? repository,
+  }) : repository = repository ?? ParticipantRepository();
 
   @override
   State<ParticipantListScreen> createState() => _ParticipantListScreenState();
@@ -19,13 +24,21 @@ class ParticipantListScreen extends StatefulWidget {
 
 class _ParticipantListScreenState extends State<ParticipantListScreen> {
   late Future<List<Participant>> _participantsFuture;
-  final _repository = ParticipantRepository();
+  ParticipantRepository get _repository => widget.repository;
+  final _searchController = TextEditingController();
   SortMethod _sortMethod = SortMethod.fullName;
+  String _searchQuery = '';
 
   @override
   void initState() {
     super.initState();
     _participantsFuture = _repository.getAllParticipants();
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   List<Participant> _sortParticipants(List<Participant> participants) {
@@ -95,18 +108,53 @@ class _ParticipantListScreenState extends State<ParticipantListScreen> {
           var participants = snapshot.data ?? [];
           participants = _sortParticipants(participants);
 
-          if (participants.isEmpty) {
-            return const Center(
-              child: Text('No participants imported yet.'),
-            );
-          }
+          final filtered = _searchQuery.isEmpty
+              ? participants
+              : participants.where((p) {
+                  final q = _searchQuery.toLowerCase();
+                  return p.fullName.toLowerCase().contains(q) ||
+                      p.matriculationNumber.contains(q);
+                }).toList();
 
-          return ListView.builder(
-            itemCount: participants.length,
-            itemBuilder: (context, index) {
-              final participant = participants[index];
-              return _buildParticipantRow(participant);
-            },
+          return Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
+                child: TextField(
+                  controller: _searchController,
+                  onChanged: (v) => setState(() => _searchQuery = v),
+                  decoration: InputDecoration(
+                    hintText: 'Search by name or matriculation number',
+                    prefixIcon: const Icon(Icons.search),
+                    suffixIcon: _searchQuery.isNotEmpty
+                        ? IconButton(
+                            icon: const Icon(Icons.clear),
+                            onPressed: () {
+                              _searchController.clear();
+                              setState(() => _searchQuery = '');
+                            },
+                          )
+                        : null,
+                  ),
+                ),
+              ),
+              if (participants.isEmpty)
+                const Expanded(
+                  child: Center(child: Text('No participants imported yet.')),
+                )
+              else if (filtered.isEmpty)
+                const Expanded(
+                  child: Center(child: Text('No results found.')),
+                )
+              else
+                Expanded(
+                  child: ListView.builder(
+                    itemCount: filtered.length,
+                    itemBuilder: (context, index) =>
+                        _buildParticipantRow(filtered[index]),
+                  ),
+                ),
+            ],
           );
         },
       ),

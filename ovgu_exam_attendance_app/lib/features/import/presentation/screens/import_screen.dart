@@ -10,7 +10,12 @@ import '../../services/csv_import_validator.dart';
 import '../../services/csv_participant_parser.dart';
 
 class ImportScreen extends StatefulWidget {
-  const ImportScreen({super.key});
+  final ParticipantRepository repository;
+
+  ImportScreen({
+    super.key,
+    ParticipantRepository? repository,
+  }) : repository = repository ?? ParticipantRepository();
 
   @override
   State<ImportScreen> createState() => _ImportScreenState();
@@ -19,7 +24,7 @@ class ImportScreen extends StatefulWidget {
 class _ImportScreenState extends State<ImportScreen> {
   bool _isImportSuccessful = false;
   _ImportResultCard? _resultCard;
-  final _repository = ParticipantRepository();
+  ParticipantRepository get _repository => widget.repository;
 
   @override
   void initState() {
@@ -102,7 +107,7 @@ class _ImportScreenState extends State<ImportScreen> {
 
       if (!mounted) return;
 
-      await ParticipantRepository().replaceAllParticipants(parseResult.rows);
+      await _repository.replaceAllParticipants(parseResult.rows);
 
       if (!mounted) return;
 
@@ -184,14 +189,6 @@ class _ImportScreenState extends State<ImportScreen> {
                   : null,
               icon: const Icon(Icons.list),
               label: const Text('View Participant List'),
-            ),
-            const SizedBox(height: 12),
-            OutlinedButton.icon(
-              onPressed: _isImportSuccessful
-                  ? () => Navigator.pushNamed(context, AppRoutes.manualSearch)
-                  : null,
-              icon: const Icon(Icons.search),
-              label: const Text('Manual Search'),
             ),
             const SizedBox(height: 12),
             OutlinedButton.icon(

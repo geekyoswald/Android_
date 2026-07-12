@@ -5,14 +5,19 @@ import '../../../import/data/participant_repository.dart';
 import '../../data/export_service.dart';
 
 class ExportScreen extends StatefulWidget {
-  const ExportScreen({super.key});
+  final ParticipantRepository repository;
+
+  ExportScreen({
+    super.key,
+    ParticipantRepository? repository,
+  }) : repository = repository ?? ParticipantRepository();
 
   @override
   State<ExportScreen> createState() => _ExportScreenState();
 }
 
 class _ExportScreenState extends State<ExportScreen> {
-  final _repository = ParticipantRepository();
+  ParticipantRepository get _repository => widget.repository;
   bool _isExporting = false;
   String? _lastSavedPath;
 

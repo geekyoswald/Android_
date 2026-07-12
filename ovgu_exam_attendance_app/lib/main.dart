@@ -33,11 +33,11 @@ class OvguAttendanceApp extends StatelessWidget {
       theme: AppTheme.lightTheme(),
       initialRoute: AppRoutes.import_,
       routes: {
-        AppRoutes.import_: (_) => const ImportScreen(),
-        AppRoutes.scan: (_) => const ScanScreen(),
-        AppRoutes.participantList: (_) => const ParticipantListScreen(),
-        AppRoutes.manualSearch: (_) => const ManualSearchScreen(),
-        AppRoutes.export_: (_) => const ExportScreen(),
+        AppRoutes.import_: (_) => ImportScreen(),
+        AppRoutes.scan: (_) => ScanScreen(),
+        AppRoutes.participantList: (_) => ParticipantListScreen(),
+        AppRoutes.manualSearch: (_) => ManualSearchScreen(),
+        AppRoutes.export_: (_) => ExportScreen(),
       },
       onGenerateRoute: (settings) {
         if (settings.name == AppRoutes.confirmation) {

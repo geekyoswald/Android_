@@ -6,17 +6,29 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../main.dart';
 
 class ManualSearchScreen extends StatefulWidget {
-  const ManualSearchScreen({super.key});
+  final ParticipantRepository repository;
+
+  ManualSearchScreen({
+    super.key,
+    ParticipantRepository? repository,
+  }) : repository = repository ?? ParticipantRepository();
 
   @override
   State<ManualSearchScreen> createState() => _ManualSearchScreenState();
 }
 
 class _ManualSearchScreenState extends State<ManualSearchScreen> {
-  final _repository = ParticipantRepository();
+  ParticipantRepository get _repository => widget.repository;
   final _searchController = TextEditingController();
+  List<Participant> _allParticipants = [];
   List<Participant> _results = [];
-  bool _hasSearched = false;
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadAll();
+  }
 
   @override
   void dispose() {
@@ -24,23 +36,39 @@ class _ManualSearchScreenState extends State<ManualSearchScreen> {
     super.dispose();
   }
 
-  void _search(String query) {
-    if (query.isEmpty) {
+  Future<void> _loadAll() async {
+    final all = await _repository.getAllParticipants();
+    if (mounted) {
       setState(() {
-        _results = [];
-        _hasSearched = false;
+        _allParticipants = all;
+        _results = all;
+        _isLoading = false;
       });
-      return;
     }
+  }
 
-    _repository.searchParticipants(query).then((results) {
-      if (mounted) {
-        setState(() {
-          _results = results;
-          _hasSearched = true;
-        });
+  void _search(String query) {
+    setState(() {
+      if (query.isEmpty) {
+        _results = _allParticipants;
+      } else {
+        final q = query.toLowerCase();
+        _results = _allParticipants.where((p) {
+          return p.fullName.toLowerCase().contains(q) ||
+              p.matriculationNumber.contains(q);
+        }).toList();
       }
     });
+  }
+
+  Future<void> _refresh() async {
+    final all = await _repository.getAllParticipants();
+    if (mounted) {
+      setState(() {
+        _allParticipants = all;
+        _search(_searchController.text);
+      });
+    }
   }
 
   @override
@@ -72,13 +100,14 @@ class _ManualSearchScreenState extends State<ManualSearchScreen> {
             ),
             AppTheme.verticalSpacingLarge,
             Expanded(
-              child: _hasSearched
-                  ? _results.isEmpty
+              child: _isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : _results.isEmpty
                       ? Center(
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              const Text('Student not in list.'),
+                              const Text('No students found.'),
                               AppTheme.verticalSpacingMedium,
                               ElevatedButton(
                                 onPressed: () => Navigator.pop(context),
@@ -90,13 +119,9 @@ class _ManualSearchScreenState extends State<ManualSearchScreen> {
                       : ListView.builder(
                           itemCount: _results.length,
                           itemBuilder: (context, index) {
-                            final participant = _results[index];
-                            return _buildResultRow(participant);
+                            return _buildResultRow(_results[index]);
                           },
-                        )
-                  : const Center(
-                      child: Text('Start typing to search...'),
-                    ),
+                        ),
             ),
           ],
         ),
@@ -113,8 +138,7 @@ class _ManualSearchScreenState extends State<ManualSearchScreen> {
           arguments: participant,
         );
         if (confirmed == true && mounted) {
-          // Re-run the search so the status chip refreshes from DB
-          _search(_searchController.text);
+          await _refresh();
         }
       },
       child: Padding(

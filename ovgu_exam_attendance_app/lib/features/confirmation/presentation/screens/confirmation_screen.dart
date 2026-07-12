@@ -6,18 +6,20 @@ import '../../../import/domain/participant.dart';
 
 class ConfirmationScreen extends StatefulWidget {
   final Participant participant;
+  final ParticipantRepository repository;
 
-  const ConfirmationScreen({
+  ConfirmationScreen({
     super.key,
     required this.participant,
-  });
+    ParticipantRepository? repository,
+  }) : repository = repository ?? ParticipantRepository();
 
   @override
   State<ConfirmationScreen> createState() => _ConfirmationScreenState();
 }
 
 class _ConfirmationScreenState extends State<ConfirmationScreen> {
-  final _repository = ParticipantRepository();
+  ParticipantRepository get _repository => widget.repository;
   bool _isConfirming = false;
 
   Future<void> _confirm() async {

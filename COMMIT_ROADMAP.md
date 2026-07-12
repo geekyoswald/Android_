@@ -202,26 +202,47 @@ Each commit is one screen, one layer, or one clear responsibility.
 
 ---
 
-## ⬜ Commit 19 — `test: integration test for participant list operations`
+## 🟢 Commit 19 — `test: integration test for participant list operations`
 
-**Files:** `integration_test/participant_list_test.dart` (new)
+**Files:** `test/integration/participant_list_test.dart` (new — widget test using
+`sqflite_common_ffi` in-memory DB rather than the `integration_test` package, since
+`ParticipantListScreen` doesn't require a real device/emulator to test this way)
 
 **Test flow:**
-- Import CSV with 10 students (various exam groups)
+- Import 10 students (various exam groups) directly via the repository
 - Open ParticipantListScreen
-- Verify: all 10 students visible, status = "not marked"
+- Verify: all visible students shown, status = "not marked"
 - Test sorting: tap sort control, sort by matric/surname/name
 - Verify: list reorders correctly for each sort
 - Tap a row
 - Verify: status options appear (present/excused/marked/undo)
 - Change status to "present"
-- Verify: chip updates immediately, status persists on screen refresh
+- Verify: chip updates immediately, status persists in DB
 
-**Run:** `flutter test integration_test/participant_list_test.dart`
+**Also fixed:** real bottom-sheet overflow bug on short viewports (wrapped in
+`SingleChildScrollView` with dynamic bottom padding).
+
+**Deferred (2 tests removed from the file, not just skipped):**
+- "marking a student excused shows Excused chip"
+- "undoing a pre-marked present status shows Not marked chip again"
+
+Both were written and pass their assertions, but triggered what turned out to be a
+**process-teardown hang** (`flutter test` never exits after a real
+`sqflite_common_ffi` DB write inside `tester.runAsync`) — confirmed unrelated to
+test content, since the hang persists even when the DB-writing test is the very
+last test in the file. See `TESTING_NOTES.md` for the full debugging log. Deferred
+to Commit 28 below to keep moving on the roadmap.
+
+**Known issue affecting this file today:** even the 10 remaining committed tests
+will hang the `flutter test` *process* after the last test prints, though every
+assertion passes correctly before that point. Manually interrupt the process once
+the final test line appears in output.
+
+**Run:** `flutter test test/integration/participant_list_test.dart`
 
 ---
 
-## ⬜ Commit 20 — `feat: manual search screen — unified field, live results, and navigation`
+## 🟢 Commit 20 — `feat: manual search screen — unified field, live results, and navigation`
 
 **Files:** `manual_search_screen.dart`, `main.dart`, `import_screen.dart`
 
@@ -235,7 +256,7 @@ Each commit is one screen, one layer, or one clear responsibility.
 
 ---
 
-## ⬜ Commit 21 — `feat: confirmation screen — shared widget with haptic feedback`
+## 🟢 Commit 21 — `feat: confirmation screen — shared widget with haptic feedback`
 
 **Files:** `confirmation_screen.dart` (new)
 
@@ -247,7 +268,7 @@ Each commit is one screen, one layer, or one clear responsibility.
 
 ---
 
-## ⬜ Commit 22 — `feat: scan screen — camera permission, live preview, and tap-to-scan`
+## 🟢 Commit 22 — `feat: scan screen — camera permission, live preview, and tap-to-scan`
 
 **Files:** `scan_screen.dart`, `pubspec.yaml` (camera dependency)
 
@@ -263,7 +284,7 @@ Each commit is one screen, one layer, or one clear responsibility.
 
 ---
 
-## ⬜ Commit 23 — `feat: OCR — on-device text extraction and matric detection`
+## 🟢 Commit 23 — `feat: OCR — on-device text extraction and matric detection`
 
 **Files:** `ocr_service.dart` (new), `pubspec.yaml` (OCR dependency)
 
@@ -274,7 +295,7 @@ Each commit is one screen, one layer, or one clear responsibility.
 
 ---
 
-## ⬜ Commit 24 — `feat: matching engine and scan result UX`
+## 🟢 Commit 24 — `feat: matching engine and scan result UX`
 
 **Files:** `matching_engine.dart` (new), `scan_screen.dart`
 
@@ -288,7 +309,7 @@ Each commit is one screen, one layer, or one clear responsibility.
 
 ---
 
-## ⬜ Commit 25 — `test: unit tests for matching engine`
+## 🟢 Commit 25 — `test: unit tests for matching engine`
 
 **Files:** `test/matching_engine_test.dart` (new)
 
@@ -303,38 +324,25 @@ Each commit is one screen, one layer, or one clear responsibility.
 
 ---
 
-## ⬜ Commit 26 — `feat: export attendance CSV`
+## 🟢 Commit 26 — `feat: export attendance CSV + remove marked_by_method`
 
-**Files:** `export_service.dart` (new), `export_screen.dart`
+**Files:** `export_service.dart` (new), `export_screen.dart`, `participant_repository.dart`, `participant.dart`, `app_database.dart`, `database_constants.dart`, `confirmation_screen.dart`, `main.dart`, `scan_screen.dart`, `manual_search_screen.dart`, `participant_list_screen.dart`, tests
 
 - Read all participants from DB
 - Map status integers to labels: 0 → absent, 1 → present, 2 → excused, 3 → marked
-- Write CSV: matriculation_number, full_name, exam_group, status, marked_by_method
-- Save/share via local file picker
+- Write CSV: matriculation_number, full_name, exam_group, status
+- Appends summary block: total / present / absent / excused / marked
+- Save to folder via FilePicker (Android SAF / iOS Files)
 - Warn user: "Unmarked students will appear as absent"
+- Removed marked_by_method column entirely (DB version bumped to 2)
+- Simplified updateStatus(id, status) — no method param
 
 ---
 
-## ⬜ Commit 27 — `test: integration test for full attendance workflow`
+## 🟢 Commit 27 — `test: widget tests with fake repository (replaces commits 27+28)`
 
-**Files:** `integration_test/full_attendance_workflow_test.dart` (new)
-
-**Test flow (end-to-end):**
-1. Import CSV (10 students, 2 exam groups)
-2. Open ScanScreen → verify live counts
-3. Simulate OCR scan "123456"
-4. ConfirmationScreen appears → tap "✓ Confirm"
-5. Count updates to 1/9
-6. Manual search for "Schmidt"
-7. Tap result → ConfirmationScreen → confirm
-8. Count updates to 2/8
-9. Open ParticipantList
-10. Verify 2 marked "present", 8 "not marked"
-11. Tap already-marked student → change to "excused"
-12. Verify status updated
-13. Go to ExportScreen
-14. Tap Export
-15. Verify: CSV generated with correct headers and data
-16. Verify: correct counts in export (2 present, 1 excused, 7 absent)
-
-**Run:** `flutter test integration_test/full_attendance_workflow_test.dart`
+- All 6 screens refactored to accept an optional `repository` parameter
+- `FakeParticipantRepository` added — in-memory, no real DB, no hanging
+- `participant_list_test.dart` rewritten with fake repo; previously-hanging excused/undo tests now pass
+- New `confirmation_screen_test.dart` and `manual_search_screen_test.dart`
+- **145 tests, all passing**

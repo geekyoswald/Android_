@@ -9,14 +9,19 @@ import '../../data/ocr_service.dart';
 import '../../domain/matching_engine.dart';
 
 class ScanScreen extends StatefulWidget {
-  const ScanScreen({super.key});
+  final ParticipantRepository repository;
+
+  ScanScreen({
+    super.key,
+    ParticipantRepository? repository,
+  }) : repository = repository ?? ParticipantRepository();
 
   @override
   State<ScanScreen> createState() => _ScanScreenState();
 }
 
 class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
-  final _repository = ParticipantRepository();
+  ParticipantRepository get _repository => widget.repository;
 
   CameraController? _cameraController;
   bool _permissionGranted = false;
