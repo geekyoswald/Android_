@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
@@ -44,6 +45,7 @@ class _ImportScreenState extends State<ImportScreen> {
     final result = await FilePicker.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['csv'],
+      withData: true,
     );
 
     if (!mounted) return;
@@ -62,19 +64,28 @@ class _ImportScreenState extends State<ImportScreen> {
       return;
     }
 
-    if (selectedFile.path == null) {
-      setState(() {
-        _isImportSuccessful = false;
-        _resultCard = _ImportResultCard.error(
-          title: 'Could not read file path',
-          lines: ['The selected file path is unavailable.'],
-        );
-      });
-      return;
-    }
-
     try {
-      final csvContent = await File(selectedFile.path!).readAsString();
+      String csvContent;
+      if (selectedFile.bytes != null) {
+        // Try UTF-8 first; fall back to Latin-1 for Windows/Excel exports with German umlauts
+        try {
+          csvContent = utf8.decode(selectedFile.bytes!);
+        } catch (_) {
+          csvContent = latin1.decode(selectedFile.bytes!);
+        }
+      } else if (selectedFile.path != null) {
+        // fallback: read from path (works on iOS and older Android)
+        csvContent = await File(selectedFile.path!).readAsString();
+      } else {
+        setState(() {
+          _isImportSuccessful = false;
+          _resultCard = _ImportResultCard.error(
+            title: 'Could not read file',
+            lines: ['The selected file could not be accessed.'],
+          );
+        });
+        return;
+      }
       final validation = CsvImportValidator.validate(csvContent);
 
       if (!validation.isValid) {

@@ -23,18 +23,41 @@ class CsvParticipantParser {
     final headerCells = parseCsvLine(lines.first, delimiter);
     final headers = headerCells.map(normalizeCsvHeader).toList();
 
-    final matriculationIndex = headers.indexOf('matriculation_number');
-    final fullNameIndex = headers.indexOf('full_name');
-    final examGroupIndex = headers.indexOf('exam_group');
+    // Detect format: German (mtknr/nachname/vorname) or standard (matriculation_number/full_name)
+    final isGermanFormat = headers.contains('mtknr') &&
+        headers.contains('nachname') &&
+        headers.contains('vorname');
 
-    if (matriculationIndex < 0 || fullNameIndex < 0) {
+    final int matriculationIndex;
+    final int fullNameIndex;
+    final int examGroupIndex;
+    final int? vornameIndex;
+    final int? nachnameIndex;
+
+    if (isGermanFormat) {
+      matriculationIndex = headers.indexOf('mtknr');
+      vornameIndex = headers.indexOf('vorname');
+      nachnameIndex = headers.indexOf('nachname');
+      fullNameIndex = -1; // not used directly
+      examGroupIndex = -1; // German format has no exam group
+    } else {
+      matriculationIndex = headers.indexOf('matriculation_number');
+      fullNameIndex = headers.indexOf('full_name');
+      examGroupIndex = headers.indexOf('exam_group');
+      vornameIndex = null;
+      nachnameIndex = null;
+    }
+
+    if (isGermanFormat
+        ? (matriculationIndex < 0 || vornameIndex == null || nachnameIndex == null)
+        : (matriculationIndex < 0 || fullNameIndex < 0)) {
       return const ImportResult(
         rows: [],
         errors: [
           ImportIssue(
             lineNumber: 1,
             message:
-                'Required columns missing: matriculation_number and full_name.',
+                'Required columns missing: expected (matriculation_number, full_name) or (mtknr, nachname, vorname).',
           ),
         ],
         skippedRows: [],
@@ -50,7 +73,16 @@ class CsvParticipantParser {
       final lineNumber = i + 1;
       final columns = parseCsvLine(lines[i], delimiter);
       final matriculation = _cellAt(columns, matriculationIndex);
-      final fullName = _cellAt(columns, fullNameIndex);
+
+      final String fullName;
+      if (isGermanFormat) {
+        final vorname = _cellAt(columns, vornameIndex!);
+        final nachname = _cellAt(columns, nachnameIndex!);
+        fullName = '$vorname $nachname'.trim();
+      } else {
+        fullName = _cellAt(columns, fullNameIndex);
+      }
+
       final examGroup =
           examGroupIndex >= 0 ? _cellAt(columns, examGroupIndex) : '';
 

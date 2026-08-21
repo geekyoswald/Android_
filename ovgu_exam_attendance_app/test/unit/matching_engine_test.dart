@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:ovgu_exam_attendance_app/features/import/domain/participant.dart';
-import 'package:ovgu_exam_attendance_app/features/scan/domain/matching_engine.dart';
+import 'package:ovgu_exam_attendance_app/features/scan/services/matching_engine.dart';
 
 // ---------------------------------------------------------------------------
 // Helpers

@@ -5,8 +5,8 @@ import 'package:permission_handler/permission_handler.dart';
 import '../../../../main.dart';
 import '../../../import/data/participant_repository.dart';
 import '../../../import/domain/participant.dart';
-import '../../data/ocr_service.dart';
-import '../../domain/matching_engine.dart';
+import '../../services/ocr_service.dart';
+import '../../services/matching_engine.dart';
 
 class ScanScreen extends StatefulWidget {
   final ParticipantRepository repository;

@@ -15,7 +15,10 @@ class CsvValidationResult {
 }
 
 class CsvImportValidator {
+  // Standard app format
   static const _requiredHeaders = {'matriculation_number', 'full_name'};
+  // OVGU German export format (LSF/Prüfungsamt)
+  static const _germanRequiredHeaders = {'mtknr', 'nachname', 'vorname'};
 
   static CsvValidationResult validate(String csvContent) {
     final lines = const LineSplitter()
@@ -35,15 +38,14 @@ class CsvImportValidator {
         .map(normalizeCsvHeader)
         .toSet();
 
-    final missingHeaders = _requiredHeaders
-        .where((header) => !headerColumns.contains(header))
-        .toList();
+    final isStandardFormat = _requiredHeaders.every(headerColumns.contains);
+    final isGermanFormat = _germanRequiredHeaders.every(headerColumns.contains);
 
-    if (missingHeaders.isNotEmpty) {
+    if (!isStandardFormat && !isGermanFormat) {
       return const CsvValidationResult(
         isValid: false,
         message:
-            'Error: Required columns are missing. Expected matriculation_number and full_name.',
+            'Error: Required columns are missing. Expected either (matriculation_number, full_name) or (mtknr, nachname, vorname).',
       );
     }
 

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_theme.dart';
 import '../../../import/data/participant_repository.dart';
-import '../../data/export_service.dart';
+import '../../services/export_service.dart';
 
 class ExportScreen extends StatefulWidget {
   final ParticipantRepository repository;
